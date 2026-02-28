@@ -19,13 +19,22 @@ Route::middleware([
             Route::post('add-edit', [CategoriesController::class, 'addEdit']);
             Route::delete('destroy/{id}', [CategoriesController::class, 'destroy']);
             Route::post('force-delete', [CategoriesController::class, 'forceDelete']);
+            Route::prefix('store')->group(function () {
+                Route::get('get', [StoreController::class, 'fetch']);
+                Route::post('add-edit', [StoreController::class, 'addEdit']);
+                Route::delete('destroy/{id}', [StoreController::class, 'destroy']);
+            });
         });
         Route::get('get', [CategoriesController::class, 'fetch']);
+        Route::middleware(['role:store'])->group(function () {
+            Route::post('add-edit', [ProductController::class, 'addEdit']);
+            Route::get('get-categories', [StoreController::class, 'getCategory']);
+        });
     });
-    Route::prefix('product')->group(function () {
-        Route::post('add-edit', [ProductController::class, 'addEdit']);
-    });
-    Route::prefix('store')->group(function () {
-        Route::get('get', [StoreController::class, 'fetch']);
+
+    Route::middleware(['role:store'])->group(function () {
+        Route::prefix('product')->group(function () {
+            Route::post('add-edit', [ProductController::class, 'addEdit']);
+        });
     });
 });

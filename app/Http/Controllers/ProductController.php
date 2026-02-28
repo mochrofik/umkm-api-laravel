@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\Store;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
@@ -38,15 +40,45 @@ class ProductController extends Controller
                 if (!$storeExist) {
                     return $this->errorResponse("Data toko tidak ditemukan", null, 422);
                 }
+                if (isset($request->id) && $request->id != null) {
 
+                    $product = Product::find($request->id);
+                } else {
+                    $product = new Product();
+                }
 
-                return null;
+                $product->name = $request->name;
+                $product->price = $request->price;
+                $product->description = $request->description;
+                if ($request->stock < 0) {
+                    return $this->errorResponse("Gagal tidak boleh kurang dari 0", null, 500);
+                }
+                $product->stock = $request->stock;
+                $product->is_available = $request->is_available;
+
+                $staticPath = 'uploads/product';
+                if ($request->hasFile('logo')) {
+                    if ($product->logo && Storage::disk('public')->exists($staticPath . '/' . $product->logo)) {
+                        Storage::disk('public')->delete($staticPath . '/' . $product->logo);
+                    }
+
+                    $file = $request->file('logo');
+                    $filename = time() . '_' . $file->getClientOriginalName();
+                    $file->storeAs($staticPath, $filename, 'public');
+                    $product->logo = $filename;
+                }
+
+                $product->save();
+
+                DB::commit();
+                return $this->successResponse('Berhasil menambahkan data product',  $product, 201);
             } else {
                 return $this->errorResponse("Gagal menambah data produk", null, 500);
             }
         } catch (\Throwable $th) {
             Log::error("store product " . $th);
             DB::rollBack();
+            return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
         }
     }
 }

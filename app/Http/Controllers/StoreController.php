@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\MenuCategories;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -23,7 +25,7 @@ class StoreController extends Controller
             $categories = Store::query()
                 ->when($search, function ($query, $search) {
                     return $query->where('name', 'like', "%{$search}%");
-                })
+                })->with("user")
                 ->latest()
                 ->paginate($limit)
                 ->withQueryString();
@@ -37,13 +39,12 @@ class StoreController extends Controller
 
     public function addEdit(Request $request)
     {
+
         $validator = Validator::make($request->all(), [
             'name'     => 'required|string|max:255',
-            'email'    => 'required|string|email|max:255|unique:users',
             'role'     => 'required|in:admin,store,customer',
             'status'   => 'required|in:active,verify,banned',
-            'password' => 'required|string|min:8',
-
+            'password' => $request->id ? 'nullable|string|min:8' : 'required|string|min:8',
             'store_name'   => 'required|string|max:255',
             'slug'      => 'required|string',
             'address'      => 'required|string',
@@ -54,26 +55,55 @@ class StoreController extends Controller
             'open_at'      => 'nullable|date_format:H:i',
             'close_at'     => 'nullable|date_format:H:i',
         ]);
-        $cekSlugStore = Store::where('slug', $request->slug)->first();
-        if ($cekSlugStore) {
-            return $this->errorResponse("Validasi Gagal Nama Toko Sudah digunakan", $validator->errors(), 422);
-        }
 
+        if (!isset($request->id) || $request->id == null) {
+            $cekSlugStore = Store::where('slug', $request->slug)->first();
+            if ($cekSlugStore) {
+                return $this->errorResponse("Validasi Gagal Nama Toko Sudah digunakan", $validator->errors(), 422);
+            }
+
+            $checkEmail = User::where('email', $request->email)->first();
+            if ($checkEmail != null) {
+                return $this->errorResponse("Validasi Gagal Email Sudah digunakan", $validator->errors(), 422);
+            }
+        }
         if ($validator->fails()) {
             return $this->errorResponse("Validasi Gagal", $validator->errors(), 422);
         }
 
-        try {
-            $user = User::create([
-                'name'     => $request->name,
-                'email'    => $request->email,
-                'role'     => $request->role,
-                'status'   => $request->status,
-                'password' => Hash::make($request->password),
-            ]);
 
-            $user->assignRole('store');
-            $store = new Store();
+        try {
+
+            if (isset($request->id) && $request->id != null) {
+                $user = User::where("id", $request->id)->first();
+                if ($request->password != null) {
+                    if ($user->password != $request->password) {
+                        $user->password = $request->password;
+                    }
+                }
+
+                if ($request->email != null && $user->email != $request->email) {
+                    $user->email = $request->email;
+                }
+            } else {
+                $user =  new User();
+                $user->password = $request->password;
+                $user->email = $request->email;
+            }
+
+            $user->name =      $request->name;
+            $user->role = $request->role;
+            $user->status   = $request->status;
+            $user->save();
+
+            if (isset($request->id) && $request->id != null) {
+                $store = Store::where('user_id', $request->id)->first();
+            } else {
+
+                $user->assignRole('store');
+                $store = new Store();
+            }
+
             $store->user_id      = $user->id;
             $store->name         = $request->store_name;
             $store->slug         = Str::slug($request->slug);
@@ -102,8 +132,59 @@ class StoreController extends Controller
             return $this->successResponse('Berhasil menambahkan data toko',  $store, 201);
         } catch (\Throwable $th) {
             DB::rollBack();
-            Log::error("add edit toko error " . $th->getMessage());
+            Log::error("add edit toko error " . $th);
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
+        }
+    }
+
+    public function destroy($id)
+    {
+        try {
+            $category = Store::findOrFail($id);
+            $category->delete();
+            return $this->successResponse("Data toko berhasil dihapus", $category, 200);
+        } catch (\Throwable $th) {
+            Log::error($th);
+            return $this->errorResponse("Data toko gagal dihapus", $th, 500);
+        }
+    }
+
+    public function getCategory(Request $request)
+    {
+
+        try {
+            $auth = Auth::user();
+            $store = Store::where('user_id', $auth->id)->first();
+            if (!$store) {
+                return $this->errorResponse("Data toko tidak ditemukan", null, 400);
+            }
+
+            $search = $request->query('search');
+            $limit = $request->query('limit', 10);
+
+            $categories = MenuCategories::query()
+                ->where('store_id', $store->id)
+                ->when($search, function ($query, $search) {
+                    return $query->where('name', 'like', "%{$search}%");
+                })
+                ->latest()
+                ->paginate($limit)
+                ->withQueryString();
+
+            return $this->successResponse("Data kategori berhasil diambil", $categories, 200);
+        } catch (\Throwable $th) {
+            Log::error("fetch menu categories " . $th);
+            return $this->errorResponse("Terjadi kesalahan", $th, 500);
+        }
+    }
+
+    public function addEditMenuCategory(Request $request)
+    {
+        try {
+            $auth = Auth::user();
+            $store = Store::where('id', $auth->id)->first();
+        } catch (\Throwable $th) {
+            //throw $th;
         }
     }
 }

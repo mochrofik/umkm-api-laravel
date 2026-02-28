@@ -76,7 +76,7 @@ class RegisterController extends Controller
                 'email'    => $request->email,
                 'role'     => $request->role,
                 'status'   => $request->status,
-                'password' => Hash::make($request->password),
+                'password' => $request->password,
             ]);
             // 12345678 password
             if ($request->role == 'store') {
