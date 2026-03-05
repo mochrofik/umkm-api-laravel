@@ -41,8 +41,10 @@ class CategoriesController extends Controller
 
             $staticPath = 'uploads/categories';
             if ($request->hasFile('icon')) {
-                if ($category->icon && Storage::disk('public')->exists($staticPath . '/' . $category->icon)) {
-                    Storage::disk('public')->delete($staticPath . '/' . $category->icon);
+
+                $oldImage = $category->icon;
+                if ($oldImage && Storage::disk('public')->exists($staticPath . '/' . $oldImage)) {
+                    Storage::disk('public')->delete($staticPath . '/' . $oldImage);
                 }
 
                 $file = $request->file('icon');
@@ -75,7 +77,7 @@ class CategoriesController extends Controller
                     return $query->where('name', 'like', "%{$search}%");
                 })
                 ->latest()
-                   ->paginate($limit)
+                ->paginate($limit)
                 ->withQueryString();
 
             return $this->successResponse("Data kategori berhasil diambil", $categories, 200);

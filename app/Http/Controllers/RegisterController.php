@@ -62,12 +62,14 @@ class RegisterController extends Controller
             ]);
         }
 
-        // Respon jika validasi gagal
         if ($validator->fails()) {
             return $this->errorResponse("Validasi Gagal", $validator->errors(), 422);
         }
 
-
+        $checkNo = Store::where('phone_number', $request->phone_number)->first();
+        if ($checkNo != null) {
+            return $this->errorResponse("Nomor Telepon Sudah Digunakan", null, 500);
+        }
         DB::beginTransaction();
         try {
 

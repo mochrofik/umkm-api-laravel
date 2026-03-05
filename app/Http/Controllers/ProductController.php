@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductTag;
 use App\Models\Store;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -59,10 +60,11 @@ class ProductController extends Controller
 
                 $staticPath = 'uploads/product';
                 if ($request->hasFile('image')) {
-                    if ($product->logo && Storage::disk('public')->exists($staticPath . '/' . $product->logo)) {
-                        Storage::disk('public')->delete($staticPath . '/' . $product->logo);
-                    }
 
+                    $oldImage = $product->image_url;
+                    if ($oldImage && Storage::disk('public')->exists($staticPath . '/' . $oldImage)) {
+                        Storage::disk('public')->delete($staticPath . '/' . $oldImage);
+                    }
 
                     $file = $request->file('image');
                     $cleanName = str_replace(' ', '_', $file->getClientOriginalName());
@@ -72,6 +74,22 @@ class ProductController extends Controller
                 }
 
                 $product->save();
+
+
+                if (isset($request->tags) && $request->tags) {
+                    $tagsArray = explode(',', $request->tags);
+                    ProductTag::where('product_id', $product->id)->delete();
+                    foreach ($tagsArray as $key => $tag) {
+                        $tagName = trim($tag);
+
+                        if (!empty($tagName)) {
+                            $prodTag =  new ProductTag();
+                            $prodTag->product_id = $product->id;
+                            $prodTag->tag_name = $tagName;
+                            $prodTag->save();
+                        }
+                    }
+                }
 
                 DB::commit();
                 return $this->successResponse('Berhasil menambahkan data product',  $product, 201);
@@ -138,7 +156,9 @@ class ProductController extends Controller
     public function detail($id)
     {
         try {
-            $product = Product::with('category')->where('id', $id)->first();
+            $product = Product::with('category')
+                ->with('tags')
+                ->where('id', $id)->first();
             return $this->successResponse("Data produk berhasil diambil", $product, 200);
         } catch (\Throwable $th) {
             Log::error("detail menu produk " . $th);
