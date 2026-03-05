@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MenuCategories;
+use App\Models\Product;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -160,16 +161,20 @@ class StoreController extends Controller
             }
 
             $search = $request->query('search');
-            $limit = $request->query('limit', 10);
+            $limit = $request->query('limit');
 
-            $categories = MenuCategories::query()
+            $query   = MenuCategories::query()
                 ->where('store_id', $store->id)
                 ->when($search, function ($query, $search) {
                     return $query->where('name', 'like', "%{$search}%");
                 })
-                ->latest()
-                ->paginate($limit)
-                ->withQueryString();
+                ->latest();
+
+            if ($limit && is_numeric($limit)) {
+                $categories = $query->paginate($limit)->withQueryString();
+            } else {
+                $categories = $query->get();
+            }
 
             return $this->successResponse("Data kategori berhasil diambil", $categories, 200);
         } catch (\Throwable $th) {
@@ -180,11 +185,86 @@ class StoreController extends Controller
 
     public function addEditMenuCategory(Request $request)
     {
+
+        $validator = Validator::make($request->all(), [
+            'id'     => 'nullable|exists:categories,id',
+            'name'   => 'required|string|max:255',
+            'description'   => 'required|string',
+            'display_order'   => 'required|integer',
+            'is_active'     => 'required|integer|in:0,1',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse("Validasi Gagal", $validator->errors(), 422);
+        }
+
+        DB::beginTransaction();
         try {
             $auth = Auth::user();
-            $store = Store::where('id', $auth->id)->first();
+            $store = Store::where('user_id', $auth->id)->first();
+            if (!$store) {
+                return $this->errorResponse("Toko tidak ditemukan", null, 500);
+            }
+
+            if ($request->is_active == 1) {
+                $duplicateOrder = MenuCategories::where('store_id', $store->id)
+                    ->where('display_order', $request->display_order)
+                    ->where('is_active', 1)
+                    ->when($request->id, function ($query) use ($request) {
+                        return $query->where('id', '!=', $request->id);
+                    })
+                    ->first();
+
+                if ($duplicateOrder) {
+                    return $this->errorResponse("Urutan #{$request->display_order} sudah digunakan oleh kategori aktif: '{$duplicateOrder->name}'", null, 422);
+                }
+            }
+
+            if (isset($request->id) && $request->id != null) {
+                $menuCategory = MenuCategories::find($request->id);
+            } else {
+
+                $nameExist = MenuCategories::where('name', $request->name)
+                    ->where('store_id', $store->id)->first();
+                if ($nameExist) {
+                    return $this->errorResponse("Data sudah ada di database", null, 500);
+                }
+                $menuCategory = new MenuCategories();
+            }
+
+            $menuCategory->store_id = $store->id;
+            $menuCategory->name = $request->name;
+            $menuCategory->description = $request->description;
+            $menuCategory->display_order = $request->display_order;
+            $menuCategory->is_active = $request->is_active;
+
+            $menuCategory->save();
+
+            DB::commit();
+            $message = (isset($request->id)) ? 'Kategori berhasil diubah' : 'Kategori berhasil ditambahkan';
+            return $this->successResponse($message, $menuCategory, 201);
         } catch (\Throwable $th) {
-            //throw $th;
+            DB::rollBack();
+            Log::error("addEdit category error: " . $th->getMessage());
+            return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
+        }
+    }
+
+    public function destroyMenuCategories($id)
+    {
+        try {
+            $category = MenuCategories::findOrFail($id);
+
+
+            $product = Product::where('menu_category_id', $id)->first();
+            if ($product != null) {
+                return $this->errorResponse("Gagal Hapus, data kategori dipakai pada produk aktif", null, 500);
+            }   
+            $category->delete();
+            return $this->successResponse("Data kategori berhasil dihapus", $category, 200);
+        } catch (\Throwable $th) {
+            Log::error($th);
+            return $this->errorResponse("Data kategori gagal dihapus", $th, 500);
         }
     }
 }

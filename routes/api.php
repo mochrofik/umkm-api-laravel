@@ -27,14 +27,18 @@ Route::middleware([
         });
         Route::get('get', [CategoriesController::class, 'fetch']);
         Route::middleware(['role:store'])->group(function () {
-            Route::post('add-edit', [ProductController::class, 'addEdit']);
             Route::get('get-categories', [StoreController::class, 'getCategory']);
+            Route::post('add-edit-menu-categories', [StoreController::class, 'addEditMenuCategory']);
+            Route::delete('destroy-menu-categories/{id}', [StoreController::class, 'destroyMenuCategories']);
         });
     });
 
     Route::middleware(['role:store'])->group(function () {
         Route::prefix('product')->group(function () {
+            Route::get('get-product', [ProductController::class, 'getProduct']);
+            Route::get('detail-product/{id}', [ProductController::class, 'detail']);
             Route::post('add-edit', [ProductController::class, 'addEdit']);
+            Route::delete('destroy/{id}', [ProductController::class, 'destroy']);
         });
     });
 });
