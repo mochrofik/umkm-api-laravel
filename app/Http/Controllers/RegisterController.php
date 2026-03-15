@@ -29,7 +29,7 @@ class RegisterController extends Controller
                 'slug'      => 'required|string',
                 'address'      => 'required|string',
                 'description'  => 'required|string',
-                'phone_number' => 'nullable|string',
+                'phone_number' => 'required|string',
                 'latitude'     => 'nullable|numeric',
                 'longitude'    => 'nullable|numeric',
                 'open_at'      => 'nullable|date_format:H:i',
