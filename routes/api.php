@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\StoreController;
 use Illuminate\Support\Facades\Route;
@@ -17,6 +18,8 @@ Route::get('get-nearby', [CustomerController::class, 'getNearby']);
 Route::middleware([
     'auth:sanctum',
 ])->group(function () {
+    Route::get('get-profile', [ProfileController::class, 'getProfile']);
+    Route::post('update-profile', [ProfileController::class, 'update']);
     Route::prefix('category')->group(function () {
         Route::middleware(['role:admin'])->group(function () {
             Route::post('add-edit', [CategoriesController::class, 'addEdit']);

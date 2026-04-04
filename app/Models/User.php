@@ -51,4 +51,9 @@ class User extends Authenticatable
             // 'password' => 'hashed',
         ];
     }
+
+    public function getStore()
+    {
+        return $this->hasOne(Store::class, 'user_id', 'id');
+    }
 }

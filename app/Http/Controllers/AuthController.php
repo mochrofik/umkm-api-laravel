@@ -24,8 +24,15 @@ class AuthController extends Controller
         try {
 
             if ($request->email != "admin") {
-                $user = User::where('email', $request->email)->first();
-                if (! $user || !($request->password == $user->password)) {
+                $user = User::where('email', $request->email)
+                    ->whereHas('getStore')
+                    ->first();
+
+                if ($user) {
+                    if (! $user || !Hash::check($request->password, $user->password)) {
+                        return $this->errorResponse("Email atau Password salah", null, 401);
+                    }
+                } else {
                     return $this->errorResponse("Email atau Password salah", null, 401);
                 }
             } else {

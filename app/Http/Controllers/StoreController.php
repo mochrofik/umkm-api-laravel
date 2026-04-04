@@ -259,7 +259,7 @@ class StoreController extends Controller
             $product = Product::where('menu_category_id', $id)->first();
             if ($product != null) {
                 return $this->errorResponse("Gagal Hapus, data kategori dipakai pada produk aktif", null, 500);
-            }   
+            }
             $category->delete();
             return $this->successResponse("Data kategori berhasil dihapus", $category, 200);
         } catch (\Throwable $th) {

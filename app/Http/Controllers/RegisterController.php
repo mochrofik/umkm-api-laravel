@@ -20,11 +20,10 @@ class RegisterController extends Controller
         if (isset($request->role) && $request->role == 'store') {
             $validator = Validator::make($request->all(), [
                 'name'     => 'required|string|max:255',
-                'email'    => 'required|string|email|max:255|unique:users',
+                'email'    => 'required|string|email|max:255',
                 'role'     => 'required|in:admin,store,customer',
                 'status'   => 'required|in:active,verify,banned',
                 'password' => 'required|string|min:8',
-
                 'store_name'   => 'required|string|max:255',
                 'slug'      => 'required|string',
                 'address'      => 'required|string',
@@ -39,15 +38,19 @@ class RegisterController extends Controller
             if ($cekSlugStore) {
                 return $this->errorResponse("Validasi Gagal Nama Toko Sudah digunakan", $validator->errors(), 422);
             }
+            $cekEmail = User::where('email', $request->email)
+                ->whereHas('getStore')->first();
+
+            if ($cekEmail) {
+                return $this->errorResponse("Validasi Gagal Email Toko Sudah digunakan", $validator->errors(), 422);
+            }
         } else if (isset($request->role) && $request->role == 'customer') {
             $validator = Validator::make($request->all(), [
                 'name'     => 'required|string|max:255',
-                'email'    => 'required|string|email|max:255|unique:users',
+                'email'    => 'required|string|email|max:255',
                 'role'     => 'required|in:admin,store,customer',
                 'status'   => 'required|in:active,verify,banned',
                 'password' => 'required|string|min:8',
-
-
                 'nik'            => 'nullable|numeric|digits:16|unique:customers,nik',
                 'phone_number'   => 'required|string|min:10|max:15',
                 'gender'         => 'nullable|in:male,female',
@@ -78,7 +81,7 @@ class RegisterController extends Controller
                 'email'    => $request->email,
                 'role'     => $request->role,
                 'status'   => $request->status,
-                'password' => $request->password,
+                'password' => Hash::make($request->password),
             ]);
             // 12345678 password
             if ($request->role == 'store') {
