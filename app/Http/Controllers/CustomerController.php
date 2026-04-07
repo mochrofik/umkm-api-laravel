@@ -12,17 +12,14 @@ class CustomerController extends Controller
     {
 
         try {
-            // 1. Ambil data dari request (bisa dari query params atau body)
             $userLat = $request->input('lat');
             $userLng = $request->input('lng');
-            $radius = 100; // Radius dalam KM
+            $radius = 20; // Radius dalam KM
 
-            // Validasi input
             if (!$userLat || !$userLng) {
                 return response()->json(['message' => 'Latitude dan Longitude wajib diisi'], 400);
             }
 
-            // 2. Jalankan Query Haversine menggunakan selectRaw
             $lokasiTerdekat = Store::selectRaw("id, name, logo, rating, description, latitude, longitude, 
             ( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) 
             * cos( radians( longitude ) - radians(?) ) 
@@ -31,9 +28,10 @@ class CustomerController extends Controller
                 ->orderBy('jarak', 'asc')
                 ->get();
 
-            return response()->json($lokasiTerdekat);
+
+            return $this->successResponse("Data toko terdekat", $lokasiTerdekat, 200);
         } catch (\Throwable $th) {
-            Log::error("add edit toko error " . $th);
+            Log::error("nearby toko error " . $th);
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
         }
     }

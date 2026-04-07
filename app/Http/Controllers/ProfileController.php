@@ -2,11 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
+use App\Models\Store;
+use App\Models\StoreCategory;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProfileController extends Controller
 {
@@ -16,7 +21,7 @@ class ProfileController extends Controller
             $auth = Auth::user();
 
             $user = User::where('id', $auth->id)
-                ->with('getStore')
+                ->with('getStore.store_categories.categories')
                 ->first();
 
             return $this->successResponse("Data profile", $user, 200);
@@ -29,8 +34,77 @@ class ProfileController extends Controller
     public function update(Request $request)
     {
 
+        DB::beginTransaction();
         try {
             if (isset($request->id_user) && $request->id_user != null) {
+                if ($request->role == "store") {
+
+
+                    $user = User::where('id', $request->id_user)->first();
+                    if (!$user) {
+                        return $this->errorResponse("Data profile tidak ditemukan", null, 422);
+                    }
+
+                    $store = Store::where('user_id', $request->id_user)->first();
+                    if (!$store) {
+                        return $this->errorResponse("Data toko tidak ditemukan", null, 422);
+                    }
+
+
+                    $checkEmail = User::where('email', $request->email)
+                        ->whereHas('getStore')
+                        ->first();
+                    if ($checkEmail != null && $request->email != $user->email) {
+                        return $this->errorResponse("Validasi Gagal Email Sudah digunakan", null, 422);
+                    }
+
+                    $user->name =  $request->name;
+                    $user->email =  $request->email;
+                    $user->save();
+
+
+                    if (isset($request->categories)) {
+                        StoreCategory::where('store_id', $store->id)->delete();
+                        foreach ($request->categories as $key => $value) {
+                            $checkExistCategory = Category::find($value);
+
+                            if ($checkExistCategory) {
+                                $store_category = new StoreCategory();
+                                $store_category->store_id = $store->id;
+                                $store_category->category_id = $checkExistCategory->id;
+                                $store_category->save();
+                            }
+                        }
+                    }
+
+
+                    $store->name         = $request->store_name;
+                    $store->slug         = Str::slug($request->slug);
+                    $store->address      = $request->address;
+                    $store->description  = $request->description;
+                    $store->phone_number = $request->phone_number;
+                    $store->latitude     = $request->latitude;
+                    $store->longitude    = $request->longitude;
+                    $store->open_at      = $request->open_at;
+                    $store->close_at     = $request->close_at;
+
+                    $staticPath = 'uploads/store';
+                    if ($request->hasFile('icon')) {
+                        if ($store->logo && Storage::disk('public')->exists($staticPath . '/' . $store->logo)) {
+                            Storage::disk('public')->delete($staticPath . '/' . $store->logo);
+                        }
+
+                        $file = $request->file('icon');
+                        $filename = time() . '_' . $file->getClientOriginalName();
+                        $file->storeAs($staticPath, $filename, 'public');
+                        $store->logo = $filename;
+                    }
+
+                    $store->save();
+                    DB::commit();
+                    return $this->successResponse('Berhasil mengubah data toko',  $store, 201);
+                } else if ($request->role == 'admin') {
+                }
             }
             return $request;
         } catch (\Throwable $th) {
