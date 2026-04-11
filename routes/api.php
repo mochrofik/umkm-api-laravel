@@ -25,11 +25,6 @@ Route::middleware([
             Route::post('add-edit', [CategoriesController::class, 'addEdit']);
             Route::delete('destroy/{id}', [CategoriesController::class, 'destroy']);
             Route::post('force-delete', [CategoriesController::class, 'forceDelete']);
-            // Route::prefix('store')->group(function () {
-            //     Route::get('get', [StoreController::class, 'fetch']);
-            //     Route::post('add-edit', [StoreController::class, 'addEdit']);
-            //     Route::delete('destroy/{id}', [StoreController::class, 'destroy']);
-            // });
         });
         Route::get('get', [CategoriesController::class, 'fetch']);
         Route::middleware(['role:store'])->group(function () {
@@ -39,10 +34,19 @@ Route::middleware([
         });
     });
 
-    Route::prefix('store')->group(function () {
-        Route::get('get', [StoreController::class, 'fetch']);
-        Route::post('add-edit', [StoreController::class, 'addEdit']);
-        Route::delete('destroy/{id}', [StoreController::class, 'destroy']);
+
+    Route::middleware(['role:admin'])->group(function () {
+        Route::prefix('store')->group(function () {
+            Route::get('get', [StoreController::class, 'fetch']);
+            Route::post('add-edit', [StoreController::class, 'addEdit']);
+            Route::delete('destroy/{id}', [StoreController::class, 'destroy']);
+        });
+
+        Route::prefix('customer')->group(function () {
+            Route::get('get', [CustomerController::class, 'fetch']);
+            Route::post('add-edit', [CustomerController::class, 'addEdit']);
+            Route::delete('destroy/{id}', [CustomerController::class, 'destroy']);
+        });
     });
 
     Route::middleware(['role:store'])->group(function () {

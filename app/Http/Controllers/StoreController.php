@@ -22,10 +22,23 @@ class StoreController extends Controller
         try {
             $search = $request->query('search');
             $limit = $request->query('limit', 10);
+            $status = $request->query('status');
 
             $categories = Store::query()
+                ->when($status, function ($query, $status) {
+                    $query->whereHas('user', function ($query) use ($status) {
+                        if ($status != "all") {
+                            $query->where('status', $status);
+                        }
+                    });
+                })
                 ->when($search, function ($query, $search) {
-                    return $query->where('name', 'like', "%{$search}%");
+                    $query->whereHas('user', function ($query) use ($search) {
+                        $query->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    })
+                        ->orWhere('phone_number', 'like', "%{$search}%")
+                        ->orWhere('address', 'like', "%{$search}%");
                 })->with("user")
                 ->latest()
                 ->paginate($limit)
@@ -71,7 +84,7 @@ class StoreController extends Controller
         if ($validator->fails()) {
             return $this->errorResponse("Validasi Gagal", $validator->errors(), 422);
         }
-
+        DB::beginTransaction();
 
         try {
 
@@ -79,7 +92,7 @@ class StoreController extends Controller
                 $user = User::where("id", $request->id)->first();
                 if ($request->password != null) {
                     if ($user->password != $request->password) {
-                        $user->password = $request->password;
+                        $user->password = Hash::make($request->password);
                     }
                 }
 
@@ -88,7 +101,7 @@ class StoreController extends Controller
                 }
             } else {
                 $user =  new User();
-                $user->password = $request->password;
+                $user->password = Hash::make($request->password);
                 $user->email = $request->email;
             }
 
@@ -162,11 +175,15 @@ class StoreController extends Controller
 
             $search = $request->query('search');
             $limit = $request->query('limit');
+            $status = $request->query('status');
 
             $query   = MenuCategories::query()
                 ->where('store_id', $store->id)
-                ->when($search, function ($query, $search) {
-                    return $query->where('name', 'like', "%{$search}%");
+                ->where(function ($query) use ($search, $status) {
+                    $query->where('name', 'like', "%{$search}%");
+                    if ($status != "all" && $status != null) {
+                        $query->where('is_active', (int)$status);
+                    }
                 })
                 ->latest();
 

@@ -56,4 +56,39 @@ class User extends Authenticatable
     {
         return $this->hasOne(Store::class, 'user_id', 'id');
     }
+
+    public function getCustomer()
+    {
+        return $this->hasOne(Customer::class, 'user_id', 'id');
+    }
+
+    public static function checkUser($email)
+    {
+
+        $user = User::where(function ($query) use ($email) {
+            $query->where('email', $email)
+                ->orWhereHas('getStore', function ($q) use ($email) {
+                    $q->where('phone_number', $email);
+                });
+        })->first();
+
+        if ($user) {
+            return $user;
+        }
+
+        $user = User::where(function ($query) use ($email) {
+            $query->where('email', $email)
+                ->orWhereHas('getCustomer', function ($q) use ($email) {
+                    $q->where('phone_number', $email);
+                });
+        })->first();
+
+        if ($user) {
+            return $user;
+        }
+
+        $user = User::where('email', $email)->first();
+
+        return $user;
+    }
 }

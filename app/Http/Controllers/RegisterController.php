@@ -55,9 +55,8 @@ class RegisterController extends Controller
                 'phone_number'   => 'required|string|min:10|max:15',
                 'gender'         => 'nullable|in:male,female',
                 'date_of_birth'  => 'nullable|date|before:today',
-                'address'        => 'required|string|min:10',
+                'address'        => 'nullable|string|min:10',
                 'postal_code'    => 'nullable|digits:5',
-
                 'latitude'       => 'nullable|numeric',
                 'longitude'      => 'nullable|numeric',
                 'avatar'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
@@ -106,7 +105,7 @@ class RegisterController extends Controller
                 $customer->phone_number  = $request->phone_number;
                 $customer->gender        = $request->gender;
                 $customer->date_of_birth = $request->date_of_birth;
-                $customer->address       = $request->address;
+                $customer->address       = $request->address ?? "-";
                 $customer->postal_code   = $request->postal_code;
                 $customer->latitude      = $request->latitude;
                 $customer->longitude     = $request->longitude;

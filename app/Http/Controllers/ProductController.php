@@ -131,12 +131,16 @@ class ProductController extends Controller
 
             $search = $request->query('search');
             $limit = $request->query('limit');
+            $status = $request->query('status');
 
             $query   = Product::query()
                 ->where('store_id', $store->id)
                 ->with('category')
-                ->when($search, function ($query, $search) {
-                    return $query->where('name', 'like', "%{$search}%");
+                ->where(function ($query) use ($search, $status) {
+                    $query->where('name', 'like', "%{$search}%");
+                    if ($status != "all" && $status != null) {
+                        $query->where('is_available', (int)$status);
+                    }
                 })
                 ->latest();
 

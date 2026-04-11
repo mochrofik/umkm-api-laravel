@@ -2,9 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
 use App\Models\Store;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class CustomerController extends Controller
 {
@@ -33,6 +39,152 @@ class CustomerController extends Controller
         } catch (\Throwable $th) {
             Log::error("nearby toko error " . $th);
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
+        }
+    }
+    public function fetch(Request $request)
+    {
+        try {
+            $search = $request->query('search');
+            $limit = $request->query('limit');
+            $status = $request->query('status');
+
+            $query = Customer::query()
+                ->when($status, function ($query, $status) {
+                    $query->whereHas('user', function ($query) use ($status) {
+                        if ($status != "all") {
+                            $query->where('status', $status);
+                        }
+                    });
+                })
+                ->when($search, function ($query, $search) {
+                    $query->whereHas('user', function ($query) use ($search) {
+                        $query->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    })
+                        ->orWhere('phone_number', 'like', "%{$search}%")
+                        ->orWhere('address', 'like', "%{$search}%");
+                })
+                ->with("user")
+                ->latest();
+
+            if ($limit) {
+                $categories = $query->paginate($limit)->withQueryString();
+            } else {
+                $categories = $query->get();
+            }
+
+            return $this->successResponse("Data pelanggan berhasil diambil", $categories, 200);
+        } catch (\Throwable $th) {
+            Log::error("fetch custo " . $th);
+            return $this->errorResponse("Terjadi kesalahan", $th, 500);
+        }
+    }
+    public function addEdit(Request $request)
+    {
+
+
+        $validator =  Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email',
+            'phone_number' => 'required|string|max:15',
+            'gender' => 'required|in:male,female',
+            'date_of_birth' => 'nullabel|date_format:Y-m-d',
+            'address' => 'nullable|string',
+            'postal_code' => 'nullable|string|max:5',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+            'role'     => 'required|in:admin,store,customer',
+            'status'   => 'required|in:active,verify,banned',
+        ]);
+
+        if ($validator->failed()) {
+            return $this->errorResponse('Validasi gagal', $validator->errors(), 422);
+        }
+
+        if (!isset($request->id) || $request->id == null) {
+
+            $checkEmail = User::where('email', $request->email)->first();
+            if ($checkEmail != null) {
+                return $this->errorResponse("Validasi Gagal Email Sudah digunakan", null, 422);
+            }
+        }
+
+        DB::beginTransaction();
+        try {
+            if (isset($request->id) && $request->id != null) {
+                $user = User::where("id", $request->id)->first();
+                $cust = Customer::where('user_id', $request->id)->first();
+
+                if ($request->password != null) {
+                    if ($user->password != $request->password) {
+                        $user->password = $request->password;
+                    }
+                }
+                if ($request->email != null && $user->email != $request->email) {
+                    $user->email = $request->email;
+                }
+            } else {
+                $user =  new User();
+                $user->password = Hash::make($request->password);
+                $user->email = $request->email;
+            }
+
+            $user->name =      $request->name;
+            $user->role = $request->role;
+            $user->status   = $request->status;
+            $user->save();
+
+            if (!isset($request->id) || $request->id == null) {
+                $user->assignRole('customer');
+                $cust = new Customer();
+            }
+
+            $cust->user_id = $user->id;
+            $cust->nik = $request->nik;
+            $cust->phone_number = $request->phone_number;
+            $cust->gender = $request->gender;
+            $cust->date_of_birth = $request->date_of_birth;
+            $cust->address = $request->address;
+            $cust->postal_code = $request->postal_code;
+            $cust->latitude = $request->latitude;
+            $cust->longitude = $request->longitude;
+
+            $staticPath = 'uploads/customer';
+            if ($request->hasFile('avatar')) {
+                if ($cust->avatar && Storage::disk('public')->exists($staticPath . '/' . $cust->avatar)) {
+                    Storage::disk('public')->delete($staticPath . '/' . $cust->avatar);
+                }
+
+                $file = $request->file('avatar');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->storeAs($staticPath, $filename, 'public');
+                $cust->avatar = $filename;
+            }
+
+            $cust->save();
+            DB::commit();
+            return $this->successResponse('Berhasil menambahkan data pelanggan',  $cust, 201);
+        } catch (\Throwable $th) {
+            // Hapus file yang baru saja diupload jika transaksi gagal (Opsional tapi bagus)
+            if (isset($filename) && Storage::disk('public')->exists($staticPath . '/' . $filename)) {
+                Storage::disk('public')->delete($staticPath . '/' . $filename);
+            }
+            DB::rollBack();
+            Log::error("add edit customer error " . $th->getLine() . $th);
+            return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
+        }
+    }
+
+    public function destroy($id)
+    {
+        try {
+            $cust = Customer::findOrFail($id);
+            User::find($cust->user_id)->delete();
+            $cust->delete();
+            return $this->successResponse("Data pelanggan berhasil dihapus", $cust, 200);
+        } catch (\Throwable $th) {
+            Log::error($th);
+            return $this->errorResponse("Data pelanggan gagal dihapus", $th, 500);
         }
     }
 }
