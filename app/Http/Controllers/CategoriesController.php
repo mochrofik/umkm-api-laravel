@@ -60,6 +60,9 @@ class CategoriesController extends Controller
             $message = (isset($request->id)) ? 'Kategori berhasil diubah' : 'Kategori berhasil ditambahkan';
             return $this->successResponse($message, $category, 201);
         } catch (\Throwable $th) {
+            if (isset($filename) && Storage::disk('public')->exists($staticPath . '/' . $filename)) {
+                Storage::disk('public')->delete($staticPath . '/' . $filename);
+            }
             DB::rollBack();
             Log::error("addEdit category error: " . $th->getMessage());
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
@@ -91,6 +94,11 @@ class CategoriesController extends Controller
     {
         try {
             $category = Category::findOrFail($id);
+            $staticPath = 'uploads/categories';
+            $oldImage = $category->icon;
+            if ($oldImage && Storage::disk('public')->exists($staticPath . '/' . $oldImage)) {
+                Storage::disk('public')->delete($staticPath . '/' . $oldImage);
+            }
             $category->delete();
             return $this->successResponse("Data kategori berhasil dihapus", $category, 200);
         } catch (\Throwable $th) {
@@ -102,6 +110,11 @@ class CategoriesController extends Controller
     {
         try {
             $category = Category::findOrFail($id);
+            $staticPath = 'uploads/categories';
+            $oldImage = $category->icon;
+            if ($oldImage && Storage::disk('public')->exists($staticPath . '/' . $oldImage)) {
+                Storage::disk('public')->delete($staticPath . '/' . $oldImage);
+            }
             $category->forceDelete();
             return $this->successResponse("Data kategori berhasil dihapus", $category, 200);
         } catch (\Throwable $th) {

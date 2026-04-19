@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\DeleteImageHelper;
 use App\Models\MenuCategories;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\DeleteImageServices;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +19,9 @@ use Illuminate\Support\Str;
 
 class StoreController extends Controller
 {
+
+    protected string $staticPath = 'uploads/store';
+
     public function fetch(Request $request)
     {
         try {
@@ -129,15 +134,11 @@ class StoreController extends Controller
             $store->open_at      = $request->open_at;
             $store->close_at     = $request->close_at;
 
-            $staticPath = 'uploads/store';
             if ($request->hasFile('logo')) {
-                if ($store->logo && Storage::disk('public')->exists($staticPath . '/' . $store->logo)) {
-                    Storage::disk('public')->delete($staticPath . '/' . $store->logo);
-                }
-
+                DeleteImageHelper::deleteOldImage($store->logo, $this->staticPath);
                 $file = $request->file('logo');
                 $filename = time() . '_' . $file->getClientOriginalName();
-                $file->storeAs($staticPath, $filename, 'public');
+                $file->storeAs($this->staticPath, $filename, 'public');
                 $store->logo = $filename;
             }
 
@@ -145,6 +146,8 @@ class StoreController extends Controller
             DB::commit();
             return $this->successResponse('Berhasil menambahkan data toko',  $store, 201);
         } catch (\Throwable $th) {
+            DeleteImageHelper::deleteOldImage($filename, $this->staticPath);
+
             DB::rollBack();
             Log::error("add edit toko error " . $th);
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
@@ -154,9 +157,11 @@ class StoreController extends Controller
     public function destroy($id)
     {
         try {
-            $category = Store::findOrFail($id);
-            $category->delete();
-            return $this->successResponse("Data toko berhasil dihapus", $category, 200);
+            $store = Store::findOrFail($id);
+            DeleteImageHelper::deleteOldImage($store->logo, $this->staticPath);
+            $user = User::where('id', $store->user_id)->delete();
+            $store->delete();
+            return $this->successResponse("Data toko berhasil dihapus", $store, 200);
         } catch (\Throwable $th) {
             Log::error($th);
             return $this->errorResponse("Data toko gagal dihapus", $th, 500);
@@ -169,8 +174,8 @@ class StoreController extends Controller
         try {
             $auth = Auth::user();
             $store = Store::where('user_id', $auth->id)->first();
-            if (!$store) {
-                return $this->errorResponse("Data toko tidak ditemukan", null, 400);
+            if ($store == null) {
+                return $this->errorResponse("Data toko tidak ditemukan!", null, 400);
             }
 
             $search = $request->query('search');

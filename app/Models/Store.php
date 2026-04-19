@@ -31,6 +31,14 @@ class Store extends Model
     {
         return $this->hasMany(StoreCategory::class, 'store_id', 'id');
     }
+    public function menuCategories()
+    {
+        return $this->hasMany(MenuCategories::class, 'store_id', 'id');
+    }
+    public function getProducts()
+    {
+        return $this->hasMany(Product   ::class, 'store_id', 'id');
+    }
 
     public function user()
     {

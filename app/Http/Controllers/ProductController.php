@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\DeleteImageHelper;
 use App\Models\Product;
 use App\Models\ProductTag;
 use App\Models\Store;
@@ -62,9 +63,7 @@ class ProductController extends Controller
                 if ($request->hasFile('image')) {
 
                     $oldImage = $product->image_url;
-                    if ($oldImage && Storage::disk('public')->exists($staticPath . '/' . $oldImage)) {
-                        Storage::disk('public')->delete($staticPath . '/' . $oldImage);
-                    }
+                    DeleteImageHelper::deleteOldImage($oldImage, $staticPath);
 
                     $file = $request->file('image');
                     $cleanName = str_replace(' ', '_', $file->getClientOriginalName());
@@ -97,6 +96,8 @@ class ProductController extends Controller
                 return $this->errorResponse("Data toko tidak ditemukan", null, 422);
             }
         } catch (\Throwable $th) {
+            DeleteImageHelper::deleteOldImage($filename, $staticPath);
+
             Log::error("store product " . $th);
             DB::rollBack();
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
@@ -108,9 +109,7 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
             $staticPath = 'uploads/product';
-            if ($product->image_url && Storage::disk('public')->exists($staticPath . '/' . $product->image_url)) {
-                Storage::disk('public')->delete($staticPath . '/' . $product->image_url);
-            }
+            DeleteImageHelper::deleteOldImage($product->image_url, $staticPath);
             $product->delete();
             return $this->successResponse("Data produk berhasil dihapus", $product, 200);
         } catch (\Throwable $th) {

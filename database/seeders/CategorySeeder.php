@@ -13,20 +13,36 @@ class CategorySeeder extends Seeder
      */
     public function run(): void
     {
-        Category::create([
-            'name' => "Ayam"
-        ]);
-        Category::create([
-            'name' => "Bebek"
-        ]);
-        Category::create([
-            'name' => "Camilan"
-        ]);
-        Category::create([
-            'name' => "Soto"
-        ]);
-        Category::create([
-            'name' => "Martabak"
-        ]);
+        $categories = [
+            [
+                'name' => 'Jajanan & Camilan',
+            ],
+            [
+                'name' => 'Makanan Berat',
+            ],
+            [
+                'name' => 'Minuman Segar',
+            ],
+            [
+                'name' => 'Roti & Kue',
+            ],
+            [
+                'name' => 'Frozen Food',
+            ],
+            [
+                'name' => 'Oleh-oleh',
+            ],
+            [
+                'name' => 'Bumbu & Bahan Masakan',
+            ],
+        ];
+
+        foreach ($categories as $category) {
+            Category::updateOrCreate(
+                [
+                    'name' => $category['name'],
+                ]
+            );
+        }
     }
 }

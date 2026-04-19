@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\DeleteImageHelper;
 use App\Models\Customer;
 use App\Models\Store;
 use App\Models\User;
@@ -26,7 +27,7 @@ class CustomerController extends Controller
                 return response()->json(['message' => 'Latitude dan Longitude wajib diisi'], 400);
             }
 
-            $lokasiTerdekat = Store::selectRaw("id, name, logo, rating, description, latitude, longitude, 
+            $lokasiTerdekat = Store::selectRaw("id, name, slug, logo, rating, description, latitude, longitude, 
             ( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) 
             * cos( radians( longitude ) - radians(?) ) 
             + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS jarak", [$userLat, $userLng, $userLat])
@@ -151,9 +152,7 @@ class CustomerController extends Controller
 
             $staticPath = 'uploads/customer';
             if ($request->hasFile('avatar')) {
-                if ($cust->avatar && Storage::disk('public')->exists($staticPath . '/' . $cust->avatar)) {
-                    Storage::disk('public')->delete($staticPath . '/' . $cust->avatar);
-                }
+                DeleteImageHelper::deleteOldImage($cust->avatar, $staticPath);
 
                 $file = $request->file('avatar');
                 $filename = time() . '_' . $file->getClientOriginalName();
@@ -165,10 +164,7 @@ class CustomerController extends Controller
             DB::commit();
             return $this->successResponse('Berhasil menambahkan data pelanggan',  $cust, 201);
         } catch (\Throwable $th) {
-            // Hapus file yang baru saja diupload jika transaksi gagal (Opsional tapi bagus)
-            if (isset($filename) && Storage::disk('public')->exists($staticPath . '/' . $filename)) {
-                Storage::disk('public')->delete($staticPath . '/' . $filename);
-            }
+            DeleteImageHelper::deleteOldImage($filename, $staticPath);
             DB::rollBack();
             Log::error("add edit customer error " . $th->getLine() . $th);
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
@@ -179,12 +175,55 @@ class CustomerController extends Controller
     {
         try {
             $cust = Customer::findOrFail($id);
+            $staticPath = 'uploads/customer';
+            DeleteImageHelper::deleteOldImage($cust->avatar, $staticPath);
             User::find($cust->user_id)->delete();
             $cust->delete();
             return $this->successResponse("Data pelanggan berhasil dihapus", $cust, 200);
         } catch (\Throwable $th) {
             Log::error($th);
             return $this->errorResponse("Data pelanggan gagal dihapus", $th, 500);
+        }
+    }
+
+    public function storeByCategory(Request $request)
+    {
+        try {
+
+            $filter = $request->category;
+            $category = str_replace('-', '%', $filter);
+
+            $store = Store::where(function ($q) use ($category) {
+                $q->whereHas('menuCategories', function ($sub) use ($category) {
+                    $sub->where(function ($child) use ($category) {
+
+                        $child->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                    });
+                })
+                    ->orWhereHas('store_categories', function ($sub) use ($category) {
+                        $sub->where(function ($child) use ($category) {
+                            $child->whereHas('categories', function ($query) use ($category) {
+                                $query->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                            })
+                                ->orWhereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                        });
+                    })->orWhereHas('getProducts', function ($sub) use ($category) {
+                        $sub->where(function ($child) use ($category) {
+                            $child->whereRaw('LOWER(name) LIKE ? ', ["%" . strtolower(($category) . "%")]);
+                        })->orWhereHas('tags', function ($child) use ($category) {
+                            $child->where(function ($sub) use ($category) {
+                                $sub->whereRaw('LOWER(tag_name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                            });
+                        });
+                    })
+                    ->with('getProducts.tags')
+                    ->with('store_categories.categories')
+                ;
+            })->get();
+
+            return $this->successResponse("Data store", $store, 200);
+        } catch (\Throwable $th) {
+            return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
         }
     }
 }

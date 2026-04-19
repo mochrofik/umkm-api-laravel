@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\DeleteImageHelper;
 use App\Models\Category;
 use App\Models\Store;
 use App\Models\StoreCategory;
@@ -90,9 +91,7 @@ class ProfileController extends Controller
 
                     $staticPath = 'uploads/store';
                     if ($request->hasFile('icon')) {
-                        if ($store->logo && Storage::disk('public')->exists($staticPath . '/' . $store->logo)) {
-                            Storage::disk('public')->delete($staticPath . '/' . $store->logo);
-                        }
+                        DeleteImageHelper::deleteOldImage($store->logo, $staticPath);
 
                         $file = $request->file('icon');
                         $filename = time() . '_' . $file->getClientOriginalName();
@@ -108,6 +107,7 @@ class ProfileController extends Controller
             }
             return $request;
         } catch (\Throwable $th) {
+            DeleteImageHelper::deleteOldImage($filename, $staticPath);
             DB::rollBack();
             Log::error("error update profile " . $th);
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
