@@ -3,11 +3,216 @@
 namespace App\Services;
 
 use App\Models\Store;
+use App\Models\User;
+use App\Models\MenuCategories;
+use App\Models\Product;
+use App\Helpers\DeleteImageHelper;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
 
 class StoreService
 {
+    protected string $staticPath = 'uploads/store';
+
+    /**
+     * Fetch stores with filters and pagination.
+     */
+    public function fetchStores(array $filters)
+    {
+        $search = $filters['search'] ?? null;
+        $limit = $filters['limit'] ?? 10;
+        $status = $filters['status'] ?? null;
+
+        return Store::query()
+            ->when($status, function ($query, $status) {
+                $query->whereHas('user', function ($query) use ($status) {
+                    if ($status != "all") {
+                        $query->where('status', $status);
+                    }
+                });
+            })
+            ->when($search, function ($query, $search) {
+                $query->whereHas('user', function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                })
+                ->orWhere('phone_number', 'like', "%{$search}%")
+                ->orWhere('address', 'like', "%{$search}%");
+            })
+            ->with("user")
+            ->latest()
+            ->paginate($limit)
+            ->withQueryString();
+    }
+
+    /**
+     * Add or update a store and its user account.
+     */
+    public function addOrUpdateStore(array $data, $id = null)
+    {
+        return DB::transaction(function () use ($data, $id) {
+            if ($id) {
+                $user = User::findOrFail($id);
+                $store = Store::where('user_id', $id)->firstOrFail();
+
+                if (!empty($data['password'])) {
+                    $user->password = Hash::make($data['password']);
+                }
+
+                if (!empty($data['email']) && $user->email != $data['email']) {
+                    $user->email = $data['email'];
+                }
+            } else {
+                $user = new User();
+                $user->email = $data['email'];
+                $user->password = Hash::make($data['password']);
+            }
+
+            $user->name = $data['name'];
+            $user->role = $data['role'] ?? 'store';
+            $user->status = $data['status'] ?? 'active';
+            $user->save();
+
+            if (!$id) {
+                $user->assignRole('store');
+                $store = new Store();
+            }
+
+            $store->user_id      = $user->id;
+            $store->name         = $data['store_name'];
+            $store->slug         = Str::slug($data['slug']);
+            $store->address      = $data['address'];
+            $store->description  = $data['description'];
+            $store->phone_number = $data['phone_number'] ?? null;
+            $store->latitude     = $data['latitude'] ?? null;
+            $store->longitude    = $data['longitude'] ?? null;
+            $store->open_at      = $data['open_at'] ?? null;
+            $store->close_at     = $data['close_at'] ?? null;
+            $store->is_open      = ($data['is_open'] == "1" || $data['is_open'] == "true") ? true : false;
+
+            if (isset($data['logo']) && $data['logo'] instanceof \Illuminate\Http\UploadedFile) {
+                DeleteImageHelper::deleteOldImage($store->logo, $this->staticPath);
+                $file = $data['logo'];
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->storeAs($this->staticPath, $filename, 'public');
+                $store->logo = $filename;
+            }
+
+            $store->save();
+
+            return $store;
+        });
+    }
+
+    /**
+     * Delete a store and its user account.
+     */
+    public function deleteStore($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $store = Store::findOrFail($id);
+            DeleteImageHelper::deleteOldImage($store->logo, $this->staticPath);
+            
+            $user = User::find($store->user_id);
+            if ($user) {
+                $user->delete();
+            }
+            
+            $store->delete();
+            return $store;
+        });
+    }
+
+    /**
+     * Fetch menu categories for a store.
+     */
+    public function fetchMenuCategories(array $filters, $storeId)
+    {
+        $search = $filters['search'] ?? null;
+        $limit = $filters['limit'] ?? null;
+        $status = $filters['status'] ?? null;
+
+        $query = MenuCategories::query()
+            ->where('store_id', $storeId)
+            ->when($search, function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%");
+            })
+            ->when($status !== null && $status !== 'all', function ($query) use ($status) {
+                $query->where('is_active', (int)$status);
+            })
+            ->latest();
+
+        if ($limit && is_numeric($limit)) {
+            return $query->paginate($limit)->withQueryString();
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Add or update a menu category.
+     */
+    public function addOrUpdateMenuCategory(array $data, $storeId, $id = null)
+    {
+        return DB::transaction(function () use ($data, $storeId, $id) {
+            if ($data['is_active'] == 1) {
+                $duplicateOrder = MenuCategories::where('store_id', $storeId)
+                    ->where('display_order', $data['display_order'])
+                    ->where('is_active', 1)
+                    ->when($id, function ($query) use ($id) {
+                        return $query->where('id', '!=', $id);
+                    })
+                    ->first();
+
+                if ($duplicateOrder) {
+                    throw new \Exception("Urutan #{$data['display_order']} sudah digunakan oleh kategori aktif: '{$duplicateOrder->name}'");
+                }
+            }
+
+            if ($id) {
+                $menuCategory = MenuCategories::findOrFail($id);
+            } else {
+                $nameExist = MenuCategories::where('name', $data['name'])
+                    ->where('store_id', $storeId)->first();
+                if ($nameExist) {
+                    throw new \Exception("Data sudah ada di database");
+                }
+                $menuCategory = new MenuCategories();
+            }
+
+            $menuCategory->store_id = $storeId;
+            $menuCategory->name = $data['name'];
+            $menuCategory->description = $data['description'];
+            $menuCategory->display_order = $data['display_order'];
+            $menuCategory->is_active = $data['is_active'];
+
+            $menuCategory->save();
+
+            return $menuCategory;
+        });
+    }
+
+    /**
+     * Delete a menu category.
+     */
+    public function deleteMenuCategory($id)
+    {
+        $category = MenuCategories::findOrFail($id);
+
+        $product = Product::where('menu_category_id', $id)->first();
+        if ($product) {
+            throw new \Exception("Gagal Hapus, data kategori dipakai pada produk aktif");
+        }
+
+        $category->delete();
+        return $category;
+    }
+
     /**
      * Get nearby stores based on latitude and longitude.
+
      *
      * @param float $lat
      * @param float $lng

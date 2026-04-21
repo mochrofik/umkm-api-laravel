@@ -2,70 +2,44 @@
 
 namespace App\Http\Controllers;
 
-use App\Helpers\DeleteImageHelper;
-use App\Models\MenuCategories;
-use App\Models\Product;
 use App\Models\Store;
-use App\Models\User;
-use App\Services\DeleteImageServices;
+use App\Services\StoreService;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 
 class StoreController extends Controller
 {
+    protected StoreService $storeService;
 
-    protected string $staticPath = 'uploads/store';
+    public function __construct(StoreService $storeService)
+    {
+        $this->storeService = $storeService;
+    }
 
     public function fetch(Request $request)
     {
         try {
-            $search = $request->query('search');
-            $limit = $request->query('limit', 10);
-            $status = $request->query('status');
-
-            $categories = Store::query()
-                ->when($status, function ($query, $status) {
-                    $query->whereHas('user', function ($query) use ($status) {
-                        if ($status != "all") {
-                            $query->where('status', $status);
-                        }
-                    });
-                })
-                ->when($search, function ($query, $search) {
-                    $query->whereHas('user', function ($query) use ($search) {
-                        $query->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    })
-                        ->orWhere('phone_number', 'like', "%{$search}%")
-                        ->orWhere('address', 'like', "%{$search}%");
-                })->with("user")
-                ->latest()
-                ->paginate($limit)
-                ->withQueryString();
-
-            return $this->successResponse("Data toko berhasil diambil", $categories, 200);
+            $stores = $this->storeService->fetchStores($request->all());
+            return $this->successResponse("Data toko berhasil diambil", $stores, 200);
         } catch (\Throwable $th) {
             Log::error("fetch store " . $th);
-            return $this->errorResponse("Terjadi kesalahan", $th, 500);
+            return $this->errorResponse("Terjadi kesalahan", $th->getMessage(), 500);
         }
     }
 
     public function addEdit(Request $request)
     {
-
         $validator = Validator::make($request->all(), [
-            'name'     => 'required|string|max:255',
-            'role'     => 'required|in:admin,store,customer',
-            'status'   => 'required|in:active,verify,banned',
-            'password' => $request->id ? 'nullable|string|min:8' : 'required|string|min:8',
+            'name'         => 'required|string|max:255',
+            'email'        => $request->id ? 'required|email|unique:users,email,' . $request->id : 'required|email|unique:users,email',
+            'role'         => 'required|in:admin,store,customer',
+            'status'       => 'required|in:active,verify,banned',
+            'password'     => $request->id ? 'nullable|string|min:8' : 'required|string|min:8',
             'store_name'   => 'required|string|max:255',
-            'slug'      => 'required|string',
+            'slug'         => $request->id ? 'required|string|unique:stores,slug,' . $request->id . ',user_id' : 'required|string|unique:stores,slug',
             'address'      => 'required|string',
             'description'  => 'required|string',
             'phone_number' => 'nullable|string',
@@ -73,82 +47,19 @@ class StoreController extends Controller
             'longitude'    => 'nullable|numeric',
             'open_at'      => 'nullable|date_format:H:i',
             'close_at'     => 'nullable|date_format:H:i',
+        ], [
+            'email.unique' => 'Validasi Gagal Email Sudah digunakan',
+            'slug.unique'  => 'Validasi Gagal Nama Toko Sudah digunakan',
         ]);
 
-        if (!isset($request->id) || $request->id == null) {
-            $cekSlugStore = Store::where('slug', $request->slug)->first();
-            if ($cekSlugStore) {
-                return $this->errorResponse("Validasi Gagal Nama Toko Sudah digunakan", $validator->errors(), 422);
-            }
-
-            $checkEmail = User::where('email', $request->email)->first();
-            if ($checkEmail != null) {
-                return $this->errorResponse("Validasi Gagal Email Sudah digunakan", $validator->errors(), 422);
-            }
-        }
         if ($validator->fails()) {
             return $this->errorResponse("Validasi Gagal", $validator->errors(), 422);
         }
-        DB::beginTransaction();
 
         try {
-
-            if (isset($request->id) && $request->id != null) {
-                $user = User::where("id", $request->id)->first();
-                if ($request->password != null) {
-                    if ($user->password != $request->password) {
-                        $user->password = Hash::make($request->password);
-                    }
-                }
-
-                if ($request->email != null && $user->email != $request->email) {
-                    $user->email = $request->email;
-                }
-            } else {
-                $user =  new User();
-                $user->password = Hash::make($request->password);
-                $user->email = $request->email;
-            }
-
-            $user->name =      $request->name;
-            $user->role = $request->role;
-            $user->status   = $request->status;
-            $user->save();
-
-            if (isset($request->id) && $request->id != null) {
-                $store = Store::where('user_id', $request->id)->first();
-            } else {
-
-                $user->assignRole('store');
-                $store = new Store();
-            }
-
-            $store->user_id      = $user->id;
-            $store->name         = $request->store_name;
-            $store->slug         = Str::slug($request->slug);
-            $store->address      = $request->address;
-            $store->description  = $request->description;
-            $store->phone_number = $request->phone_number;
-            $store->latitude     = $request->latitude;
-            $store->longitude    = $request->longitude;
-            $store->open_at      = $request->open_at;
-            $store->close_at     = $request->close_at;
-
-            if ($request->hasFile('logo')) {
-                DeleteImageHelper::deleteOldImage($store->logo, $this->staticPath);
-                $file = $request->file('logo');
-                $filename = time() . '_' . $file->getClientOriginalName();
-                $file->storeAs($this->staticPath, $filename, 'public');
-                $store->logo = $filename;
-            }
-
-            $store->save();
-            DB::commit();
-            return $this->successResponse('Berhasil menambahkan data toko',  $store, 201);
+            $store = $this->storeService->addOrUpdateStore($request->all(), $request->id);
+            return $this->successResponse('Berhasil menyimpan data toko',  $store, 201);
         } catch (\Throwable $th) {
-            DeleteImageHelper::deleteOldImage($filename, $this->staticPath);
-
-            DB::rollBack();
             Log::error("add edit toko error " . $th);
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
         }
@@ -157,62 +68,39 @@ class StoreController extends Controller
     public function destroy($id)
     {
         try {
-            $store = Store::findOrFail($id);
-            DeleteImageHelper::deleteOldImage($store->logo, $this->staticPath);
-            $user = User::where('id', $store->user_id)->delete();
-            $store->delete();
+            $store = $this->storeService->deleteStore($id);
             return $this->successResponse("Data toko berhasil dihapus", $store, 200);
         } catch (\Throwable $th) {
             Log::error($th);
-            return $this->errorResponse("Data toko gagal dihapus", $th, 500);
+            return $this->errorResponse("Data toko gagal dihapus", $th->getMessage(), 500);
         }
     }
 
     public function getCategory(Request $request)
     {
-
         try {
             $auth = Auth::user();
             $store = Store::where('user_id', $auth->id)->first();
-            if ($store == null) {
+
+            if (!$store) {
                 return $this->errorResponse("Data toko tidak ditemukan!", null, 400);
             }
 
-            $search = $request->query('search');
-            $limit = $request->query('limit');
-            $status = $request->query('status');
-
-            $query   = MenuCategories::query()
-                ->where('store_id', $store->id)
-                ->where(function ($query) use ($search, $status) {
-                    $query->where('name', 'like', "%{$search}%");
-                    if ($status != "all" && $status != null) {
-                        $query->where('is_active', (int)$status);
-                    }
-                })
-                ->latest();
-
-            if ($limit && is_numeric($limit)) {
-                $categories = $query->paginate($limit)->withQueryString();
-            } else {
-                $categories = $query->get();
-            }
-
+            $categories = $this->storeService->fetchMenuCategories($request->all(), $store->id);
             return $this->successResponse("Data kategori berhasil diambil", $categories, 200);
         } catch (\Throwable $th) {
             Log::error("fetch menu categories " . $th);
-            return $this->errorResponse("Terjadi kesalahan", $th, 500);
+            return $this->errorResponse("Terjadi kesalahan", $th->getMessage(), 500);
         }
     }
 
     public function addEditMenuCategory(Request $request)
     {
-
         $validator = Validator::make($request->all(), [
-            'id'     => 'nullable|exists:categories,id',
-            'name'   => 'required|string|max:255',
+            'id'            => 'nullable|exists:menu_categories,id',
+            'name'          => 'required|string|max:255',
             'description'   => 'required|string',
-            'display_order'   => 'required|integer',
+            'display_order' => 'required|integer',
             'is_active'     => 'required|integer|in:0,1',
         ]);
 
@@ -220,53 +108,18 @@ class StoreController extends Controller
             return $this->errorResponse("Validasi Gagal", $validator->errors(), 422);
         }
 
-        DB::beginTransaction();
         try {
             $auth = Auth::user();
             $store = Store::where('user_id', $auth->id)->first();
+
             if (!$store) {
                 return $this->errorResponse("Toko tidak ditemukan", null, 500);
             }
 
-            if ($request->is_active == 1) {
-                $duplicateOrder = MenuCategories::where('store_id', $store->id)
-                    ->where('display_order', $request->display_order)
-                    ->where('is_active', 1)
-                    ->when($request->id, function ($query) use ($request) {
-                        return $query->where('id', '!=', $request->id);
-                    })
-                    ->first();
-
-                if ($duplicateOrder) {
-                    return $this->errorResponse("Urutan #{$request->display_order} sudah digunakan oleh kategori aktif: '{$duplicateOrder->name}'", null, 422);
-                }
-            }
-
-            if (isset($request->id) && $request->id != null) {
-                $menuCategory = MenuCategories::find($request->id);
-            } else {
-
-                $nameExist = MenuCategories::where('name', $request->name)
-                    ->where('store_id', $store->id)->first();
-                if ($nameExist) {
-                    return $this->errorResponse("Data sudah ada di database", null, 500);
-                }
-                $menuCategory = new MenuCategories();
-            }
-
-            $menuCategory->store_id = $store->id;
-            $menuCategory->name = $request->name;
-            $menuCategory->description = $request->description;
-            $menuCategory->display_order = $request->display_order;
-            $menuCategory->is_active = $request->is_active;
-
-            $menuCategory->save();
-
-            DB::commit();
-            $message = (isset($request->id)) ? 'Kategori berhasil diubah' : 'Kategori berhasil ditambahkan';
+            $menuCategory = $this->storeService->addOrUpdateMenuCategory($request->all(), $store->id, $request->id);
+            $message = $request->id ? 'Kategori berhasil diubah' : 'Kategori berhasil ditambahkan';
             return $this->successResponse($message, $menuCategory, 201);
         } catch (\Throwable $th) {
-            DB::rollBack();
             Log::error("addEdit category error: " . $th->getMessage());
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
         }
@@ -275,18 +128,11 @@ class StoreController extends Controller
     public function destroyMenuCategories($id)
     {
         try {
-            $category = MenuCategories::findOrFail($id);
-
-
-            $product = Product::where('menu_category_id', $id)->first();
-            if ($product != null) {
-                return $this->errorResponse("Gagal Hapus, data kategori dipakai pada produk aktif", null, 500);
-            }
-            $category->delete();
+            $category = $this->storeService->deleteMenuCategory($id);
             return $this->successResponse("Data kategori berhasil dihapus", $category, 200);
         } catch (\Throwable $th) {
             Log::error($th);
-            return $this->errorResponse("Data kategori gagal dihapus", $th, 500);
+            return $this->errorResponse("Data kategori gagal dihapus", $th->getMessage(), 500);
         }
     }
 }
