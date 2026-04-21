@@ -4,8 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use App\Models\MenuCategories;
-use App\Models\Product;
-use App\Models\ProductTag;
+use Illuminate\Support\Facades\DB;
 use App\Models\Store;
 use App\Models\StoreCategory;
 use App\Models\User;
@@ -157,9 +156,10 @@ class StoreSeeder extends Seeder
 
             // 5. Create 10 products spread across menu categories
             $products = $productsByCategory[$catName] ?? [];
+            $now = now();
             foreach ($products as $j => $pData) {
                 $mc = $menuCats[$j % count($menuCats)];
-                $product = Product::create([
+                $productId = DB::table('products')->insertGetId([
                     'store_id'         => $store->id,
                     'menu_category_id' => $mc->id,
                     'name'             => $pData[0],
@@ -168,11 +168,15 @@ class StoreSeeder extends Seeder
                     'image_url'        => null,
                     'stock'            => rand(10, 100),
                     'is_available'     => true,
+                    'created_at'       => $now,
+                    'updated_at'       => $now,
                 ]);
 
-                ProductTag::create([
-                    'product_id' => $product->id,
+                DB::table('product_tags')->insert([
+                    'product_id' => $productId,
                     'tag_name'   => strtolower(str_replace(' ', '-', $catName)),
+                    'created_at' => $now,
+                    'updated_at' => $now,
                 ]);
             }
         }
