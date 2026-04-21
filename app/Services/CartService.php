@@ -14,7 +14,8 @@ class CartService
      */
     public function getOrCreateCart($customerId)
     {
-        return Cart::firstOrCreate(['customer_id' => $customerId]);
+        $cart = Cart::firstOrCreate(['customer_id' => $customerId]);
+        return $cart->load(['items.product.store']);
     }
 
     /**
@@ -22,8 +23,7 @@ class CartService
      */
     public function getCart($customerId)
     {
-        $cart = $this->getOrCreateCart($customerId);
-        return $cart->load(['items.product']);
+        return $this->getOrCreateCart($customerId);
     }
 
     /**
@@ -49,9 +49,10 @@ class CartService
                 ]);
             }
 
-            return $item->load('product');
+            return $item->load('product.store');
         });
     }
+
 
     /**
      * Update quantity of an item in the cart.
