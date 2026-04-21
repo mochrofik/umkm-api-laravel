@@ -3,7 +3,9 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
+
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\StoreController;
@@ -52,12 +54,24 @@ Route::middleware([
         });
     });
 
+    Route::middleware(['role:customer'])->group(function () {
+        Route::prefix('order-customer')->group(function () {
+            Route::post('checkout', [OrderController::class, 'checkout']);
+            Route::get('history', [OrderController::class, 'customerOrderHistory']);
+        });
+    });
+
     Route::middleware(['role:store'])->group(function () {
         Route::prefix('product')->group(function () {
             Route::get('get-product', [ProductController::class, 'getProduct']);
             Route::get('detail-product/{id}', [ProductController::class, 'detail']);
             Route::post('add-edit', [ProductController::class, 'addEdit']);
             Route::delete('destroy/{id}', [ProductController::class, 'destroy']);
+        });
+
+        Route::prefix('order')->group(function () {
+            Route::get('incoming', [OrderController::class, 'getIncomingOrders']);
+            Route::post('update-status/{id}', [OrderController::class, 'updateStatus']);
         });
     });
 });
