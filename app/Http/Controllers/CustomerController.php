@@ -120,4 +120,26 @@ class CustomerController extends Controller
             return $this->errorResponse("Terjadi kesalahan", $th->getMessage(), 500);
         }
     }
+
+    public function getStoreBySearching(Request $request)
+    {
+        try {
+            $search = $request->input('search');
+
+            if (!$search) {
+                return $this->errorResponse('Parameter search wajib diisi', null, 400);
+            }
+
+            $stores = $this->storeService->searchStores(
+                $search,
+                $request->input('lat'),
+                $request->input('lng')
+            );
+
+            return $this->successResponse("Hasil pencarian toko", $stores, 200);
+        } catch (\Throwable $th) {
+            Log::error("search store error " . $th);
+            return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
+        }
+    }
 }

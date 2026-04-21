@@ -16,6 +16,7 @@ Route::get('categories-user', [CategoriesController::class, 'fetch']);
 Route::get('get-nearby', [CustomerController::class, 'getNearby']);
 Route::get('get-store-by-category', [CustomerController::class, 'storeByCategory']);
 Route::get('get-store-by-slug/{slug}', [CustomerController::class, 'showStore']);
+Route::get('getStorebySearching', [CustomerController::class, 'getStoreBySearching']);
 
 Route::middleware([
     'auth:sanctum',

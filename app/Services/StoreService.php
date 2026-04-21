@@ -69,6 +69,65 @@ class StoreService
     }
 
     /**
+     * Search stores by keyword across multiple fields:
+     * store name, product name, category, menu category, and product tags.
+     *
+     * @param string $keyword
+     * @param float|null $lat
+     * @param float|null $lng
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function searchStores($keyword, $lat = null, $lng = null)
+    {
+        $search = strtolower(trim($keyword));
+
+        $query = Store::query();
+
+        // Add distance calculation if coordinates are provided
+        if ($lat && $lng) {
+            $query->selectRaw("*, 
+                ( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) 
+                * cos( radians( longitude ) - radians(?) ) 
+                + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS jarak", [$lat, $lng, $lat]);
+        }
+
+        $query->where(function ($q) use ($search) {
+            // Search by store name
+            $q->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
+
+            // Search by category (through store_categories -> categories)
+            ->orWhereHas('store_categories', function ($sub) use ($search) {
+                $sub->whereHas('categories', function ($catQuery) use ($search) {
+                    $catQuery->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"]);
+                });
+            })
+
+            // Search by menu category name
+            ->orWhereHas('menuCategories', function ($sub) use ($search) {
+                $sub->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"]);
+            })
+
+            // Search by product name or product tags
+            ->orWhereHas('getProducts', function ($sub) use ($search) {
+                $sub->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
+                    ->orWhereRaw('LOWER(description) LIKE ?', ["%{$search}%"])
+                    ->orWhereHas('tags', function ($tagQuery) use ($search) {
+                        $tagQuery->whereRaw('LOWER(tag_name) LIKE ?', ["%{$search}%"]);
+                    });
+            });
+        });
+
+        $query->with(['getProducts.tags', 'store_categories.categories', 'menuCategories']);
+
+        // Sort by distance if coordinates provided
+        if ($lat && $lng) {
+            $query->orderBy('jarak', 'asc');
+        }
+
+        return $query->get();
+    }
+
+    /**
      * Get store by slug with menu categories and products.
      *
      * @param string $slug
