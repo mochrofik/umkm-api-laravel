@@ -191,35 +191,41 @@ class CustomerController extends Controller
         try {
 
             $filter = $request->category;
+            $userLat = $request->input('lat');
+            $userLng = $request->input('lng');
             $category = str_replace('-', '%', $filter);
 
-            $store = Store::where(function ($q) use ($category) {
-                $q->whereHas('menuCategories', function ($sub) use ($category) {
-                    $sub->where(function ($child) use ($category) {
-
-                        $child->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
-                    });
-                })
-                    ->orWhereHas('store_categories', function ($sub) use ($category) {
+            $store = Store::select('*')
+                ->selectRaw("id, name, slug, logo, rating, description, latitude, longitude, 
+            ( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) 
+            * cos( radians( longitude ) - radians(?) ) 
+            + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS jarak", [$userLat, $userLng, $userLat])
+                ->where(function ($q) use ($category) {
+                    $q->whereHas('menuCategories', function ($sub) use ($category) {
                         $sub->where(function ($child) use ($category) {
-                            $child->whereHas('categories', function ($query) use ($category) {
-                                $query->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
-                            })
-                                ->orWhereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
-                        });
-                    })->orWhereHas('getProducts', function ($sub) use ($category) {
-                        $sub->where(function ($child) use ($category) {
-                            $child->whereRaw('LOWER(name) LIKE ? ', ["%" . strtolower(($category) . "%")]);
-                        })->orWhereHas('tags', function ($child) use ($category) {
-                            $child->where(function ($sub) use ($category) {
-                                $sub->whereRaw('LOWER(tag_name) LIKE ?', ["%" . strtolower($category) . "%"]);
-                            });
+                            $child->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
                         });
                     })
-                    ->with('getProducts.tags')
-                    ->with('store_categories.categories')
-                ;
-            })->get();
+                        ->orWhereHas('store_categories', function ($sub) use ($category) {
+                            $sub->where(function ($child) use ($category) {
+                                $child->whereHas('categories', function ($query) use ($category) {
+                                    $query->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                                })
+                                    ->orWhereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                            });
+                        })->orWhereHas('getProducts', function ($sub) use ($category) {
+                            $sub->where(function ($child) use ($category) {
+                                $child->whereRaw('LOWER(name) LIKE ? ', ["%" . strtolower(($category) . "%")]);
+                            })->orWhereHas('tags', function ($child) use ($category) {
+                                $child->where(function ($sub) use ($category) {
+                                    $sub->whereRaw('LOWER(tag_name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                                });
+                            });
+                        })
+                        ->with('getProducts.tags')
+                        ->with('store_categories.categories')
+                    ;
+                })->get();
 
             return $this->successResponse("Data store", $store, 200);
         } catch (\Throwable $th) {
