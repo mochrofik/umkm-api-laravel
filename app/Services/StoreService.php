@@ -38,8 +38,8 @@ class StoreService
                     $query->where('name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%");
                 })
-                ->orWhere('phone_number', 'like', "%{$search}%")
-                ->orWhere('address', 'like', "%{$search}%");
+                    ->orWhere('phone_number', 'like', "%{$search}%")
+                    ->orWhere('address', 'like', "%{$search}%");
             })
             ->with("user")
             ->latest()
@@ -114,12 +114,12 @@ class StoreService
         return DB::transaction(function () use ($id) {
             $store = Store::findOrFail($id);
             DeleteImageHelper::deleteOldImage($store->logo, $this->staticPath);
-            
+
             $user = User::find($store->user_id);
             if ($user) {
                 $user->delete();
             }
-            
+
             $store->delete();
             return $store;
         });
@@ -241,9 +241,9 @@ class StoreService
     public function getStoresByCategory($categoryName, $lat = null, $lng = null)
     {
         $category = str_replace('-', '%', $categoryName);
-        
+
         $query = Store::query();
-        
+
         if ($lat && $lng) {
             $query->select('*')
                 ->selectRaw("id, name, slug, logo, rating, description, latitude, longitude, 
@@ -256,21 +256,21 @@ class StoreService
             $q->whereHas('menuCategories', function ($sub) use ($category) {
                 $sub->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
             })
-            ->orWhereHas('store_categories', function ($sub) use ($category) {
-                $sub->whereHas('categories', function ($query) use ($category) {
-                    $query->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                ->orWhereHas('store_categories', function ($sub) use ($category) {
+                    $sub->whereHas('categories', function ($query) use ($category) {
+                        $query->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                    })
+                        ->orWhereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
                 })
-                ->orWhereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
-            })
-            ->orWhereHas('getProducts', function ($sub) use ($category) {
-                $sub->whereRaw('LOWER(name) LIKE ? ', ["%" . strtolower($category) . "%"])
-                ->orWhereHas('tags', function ($child) use ($category) {
-                    $child->whereRaw('LOWER(tag_name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                ->orWhereHas('getProducts', function ($sub) use ($category) {
+                    $sub->whereRaw('LOWER(name) LIKE ? ', ["%" . strtolower($category) . "%"])
+                        ->orWhereHas('tags', function ($child) use ($category) {
+                            $child->whereRaw('LOWER(tag_name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                        });
                 });
-            });
         })
-        ->with(['getProducts.tags', 'store_categories.categories'])
-        ->get();
+            ->with(['getProducts.tags', 'store_categories.categories'])
+            ->get();
     }
 
     /**
@@ -300,26 +300,26 @@ class StoreService
             // Search by store name
             $q->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
 
-            // Search by category (through store_categories -> categories)
-            ->orWhereHas('store_categories', function ($sub) use ($search) {
-                $sub->whereHas('categories', function ($catQuery) use ($search) {
-                    $catQuery->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"]);
-                });
-            })
-
-            // Search by menu category name
-            ->orWhereHas('menuCategories', function ($sub) use ($search) {
-                $sub->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"]);
-            })
-
-            // Search by product name or product tags
-            ->orWhereHas('getProducts', function ($sub) use ($search) {
-                $sub->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
-                    ->orWhereRaw('LOWER(description) LIKE ?', ["%{$search}%"])
-                    ->orWhereHas('tags', function ($tagQuery) use ($search) {
-                        $tagQuery->whereRaw('LOWER(tag_name) LIKE ?', ["%{$search}%"]);
+                // Search by category (through store_categories -> categories)
+                ->orWhereHas('store_categories', function ($sub) use ($search) {
+                    $sub->whereHas('categories', function ($catQuery) use ($search) {
+                        $catQuery->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"]);
                     });
-            });
+                })
+
+                // Search by menu category name
+                ->orWhereHas('menuCategories', function ($sub) use ($search) {
+                    $sub->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"]);
+                })
+
+                // Search by product name or product tags
+                ->orWhereHas('getProducts', function ($sub) use ($search) {
+                    $sub->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
+                        ->orWhereRaw('LOWER(description) LIKE ?', ["%{$search}%"])
+                        ->orWhereHas('tags', function ($tagQuery) use ($search) {
+                            $tagQuery->whereRaw('LOWER(tag_name) LIKE ?', ["%{$search}%"]);
+                        });
+                });
         });
 
         $query->with(['getProducts.tags', 'store_categories.categories', 'menuCategories']);
