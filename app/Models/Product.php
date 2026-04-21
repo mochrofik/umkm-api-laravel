@@ -28,4 +28,9 @@ class Product extends Model
     {
         return $this->hasOne(MenuCategories::class, 'id', 'menu_category_id');
     }
+
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
 }

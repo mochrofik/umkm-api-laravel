@@ -20,4 +20,9 @@ class Customer extends Model
         if (!$this->avatar) return null;
         return asset('storage/uploads/customer/' . $this->avatar);
     }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
 }
