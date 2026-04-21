@@ -90,7 +90,7 @@ class CustomerService
             $cust->postal_code = $data['postal_code'] ?? null;
             $cust->latitude = $data['latitude'] ?? null;
             $cust->longitude = $data['longitude'] ?? null;
-            $cust->is_open = $data['is_open'] ?? null;
+            $cust->is_open = ($data['is_open'] == "1" || $data['is_open'] == "true  ") ? true : false;
 
             if (isset($data['avatar']) && $data['avatar'] instanceof \Illuminate\Http\UploadedFile) {
                 DeleteImageHelper::deleteOldImage($cust->avatar, $this->staticPath);
