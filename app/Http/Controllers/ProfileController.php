@@ -40,7 +40,6 @@ class ProfileController extends Controller
             if (isset($request->id_user) && $request->id_user != null) {
                 if ($request->role == "store") {
 
-
                     $user = User::where('id', $request->id_user)->first();
                     if (!$user) {
                         return $this->errorResponse("Data profile tidak ditemukan", null, 422);
@@ -88,6 +87,8 @@ class ProfileController extends Controller
                     $store->longitude    = $request->longitude;
                     $store->open_at      = $request->open_at;
                     $store->close_at     = $request->close_at;
+                    $store->is_open      = ($request->is_open == "1" || $request->is_open == "true") ? true : false;
+
 
                     $staticPath = 'uploads/store';
                     if ($request->hasFile('icon')) {
