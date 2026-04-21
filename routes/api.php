@@ -3,9 +3,9 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
-
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\StoreController;
@@ -58,6 +58,14 @@ Route::middleware([
         Route::prefix('order-customer')->group(function () {
             Route::post('checkout', [OrderController::class, 'checkout']);
             Route::get('history', [OrderController::class, 'customerOrderHistory']);
+        });
+
+        Route::prefix('cart')->group(function () {
+            Route::get('/', [CartController::class, 'index']);
+            Route::post('add', [CartController::class, 'store']);
+            Route::put('update/{id}', [CartController::class, 'update']);
+            Route::delete('remove/{id}', [CartController::class, 'destroy']);
+            Route::delete('clear', [CartController::class, 'clear']);
         });
     });
 
