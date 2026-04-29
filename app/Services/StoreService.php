@@ -284,7 +284,14 @@ class StoreService
      */
     public function searchStores($keyword, $lat = null, $lng = null)
     {
-        $search = strtolower(trim($keyword));
+        $search = trim($keyword);
+        
+        if (empty($search)) {
+            return collect();
+        }
+
+        // Use boolean mode wildcard for partial word matches
+        $fullTextSearch = $search . '*';
 
         $query = Store::query();
 
@@ -296,28 +303,24 @@ class StoreService
                 + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS jarak", [$lat, $lng, $lat]);
         }
 
-        $query->where(function ($q) use ($search) {
+        $query->where(function ($q) use ($fullTextSearch) {
             // Search by store name
-            $q->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
-
+            $q->whereFullText('name', $fullTextSearch, ['mode' => 'boolean'])
                 // Search by category (through store_categories -> categories)
-                ->orWhereHas('store_categories', function ($sub) use ($search) {
-                    $sub->whereHas('categories', function ($catQuery) use ($search) {
-                        $catQuery->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"]);
+                ->orWhereHas('store_categories', function ($sub) use ($fullTextSearch) {
+                    $sub->whereHas('categories', function ($catQuery) use ($fullTextSearch) {
+                        $catQuery->whereFullText('name', $fullTextSearch, ['mode' => 'boolean']);
                     });
                 })
-
                 // Search by menu category name
-                ->orWhereHas('menuCategories', function ($sub) use ($search) {
-                    $sub->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"]);
+                ->orWhereHas('menuCategories', function ($sub) use ($fullTextSearch) {
+                    $sub->whereFullText('name', $fullTextSearch, ['mode' => 'boolean']);
                 })
-
                 // Search by product name or product tags
-                ->orWhereHas('getProducts', function ($sub) use ($search) {
-                    $sub->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
-                        ->orWhereRaw('LOWER(description) LIKE ?', ["%{$search}%"])
-                        ->orWhereHas('tags', function ($tagQuery) use ($search) {
-                            $tagQuery->whereRaw('LOWER(tag_name) LIKE ?', ["%{$search}%"]);
+                ->orWhereHas('getProducts', function ($sub) use ($fullTextSearch) {
+                    $sub->whereFullText(['name', 'description'], $fullTextSearch, ['mode' => 'boolean'])
+                        ->orWhereHas('tags', function ($tagQuery) use ($fullTextSearch) {
+                            $tagQuery->whereFullText('tag_name', $fullTextSearch, ['mode' => 'boolean']);
                         });
                 });
         });
