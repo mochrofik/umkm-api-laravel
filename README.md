@@ -56,7 +56,7 @@ Ikuti langkah-langkah di bawah ini untuk menjalankan proyek di lingkungan lokal 
 ### 2. Kloning Repositori
 ```bash
 git clone https://github.com/mochrofik/umkm-api-laravel.git
-cd umkm-stores
+cd umkm-api-laravel
 ```
 
 ### 3. Instalasi Dependensi
