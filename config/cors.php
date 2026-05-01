@@ -22,6 +22,7 @@ return [
     'allowed_origins' => [
         // '*'
         'http://localhost:3000',
+        'http://192.168.1.8:3000',
         'https://fiktech.my.id',
         'http://umkm.fiktech.my.id',
         'https://umkm.fiktech.my.id',

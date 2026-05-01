@@ -1,16 +1,16 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\CartController;
+use App\Http\Controllers\GoogleController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\StoreController;
 use Illuminate\Support\Facades\Route;
-
 
 Route::post('register', [RegisterController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
@@ -19,6 +19,10 @@ Route::get('get-nearby', [CustomerController::class, 'getNearby']);
 Route::get('get-store-by-category', [CustomerController::class, 'storeByCategory']);
 Route::get('get-store-by-slug/{slug}', [CustomerController::class, 'showStore']);
 Route::get('getStorebySearching', [CustomerController::class, 'getStoreBySearching']);
+
+Route::get('auth/google/customer', [GoogleController::class, 'redirectCustomerToGoogle']);
+Route::get('auth/google/store', [GoogleController::class, 'redirectStoreToGoogle']);
+Route::post('auth/google/callback', [GoogleController::class, 'handleGoogleCallback']);
 
 Route::middleware([
     'auth:sanctum',
@@ -38,7 +42,6 @@ Route::middleware([
             Route::delete('destroy-menu-categories/{id}', [StoreController::class, 'destroyMenuCategories']);
         });
     });
-
 
     Route::middleware(['role:admin'])->group(function () {
         Route::prefix('store')->group(function () {

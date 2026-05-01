@@ -28,6 +28,7 @@ class User extends Authenticatable
         'role',
         'status',
         'password',
+        'google_id',
     ];
 
     /**
@@ -49,7 +50,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            // 'password' => 'hashed',
+            'password' => 'hashed',
         ];
     }
 
