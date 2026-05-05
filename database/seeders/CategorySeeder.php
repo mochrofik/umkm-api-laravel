@@ -16,24 +16,31 @@ class CategorySeeder extends Seeder
         $categories = [
             [
                 'name' => 'Jajanan & Camilan',
+                'icon' => 'snacks.png',
             ],
             [
                 'name' => 'Makanan Berat',
+                'icon' => 'heavy_meals.png',
             ],
             [
                 'name' => 'Minuman Segar',
+                'icon' => 'drinks.png',
             ],
             [
                 'name' => 'Roti & Kue',
+                'icon' => 'bakery.png',
             ],
             [
                 'name' => 'Frozen Food',
+                'icon' => 'frozen_food.png',
             ],
             [
                 'name' => 'Oleh-oleh',
+                'icon' => 'souvenirs.png',
             ],
             [
                 'name' => 'Bumbu & Bahan Masakan',
+                'icon' => 'ingredients.png',
             ],
         ];
 
@@ -41,6 +48,9 @@ class CategorySeeder extends Seeder
             Category::updateOrCreate(
                 [
                     'name' => $category['name'],
+                ],
+                [
+                    'icon' => $category['icon'],
                 ]
             );
         }
