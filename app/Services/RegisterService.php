@@ -1,29 +1,24 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\Store;
 use App\Models\User;
-use App\Services\RegisterService;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
-class RegisterController extends Controller
+class RegisterService
 {
-    protected RegisterService $registerService;
+    use ApiResponse;
 
-    public function __construct(RegisterService $registerService)
+    public function registerFromGoogle(Request $request)
     {
-        $this->registerService = $registerService;
-    }
-
-    public function register(Request $request)
-    {
+        $validator = null;
 
         if (isset($request->role) && $request->role == 'store') {
             $validator = Validator::make($request->all(), [
@@ -46,7 +41,12 @@ class RegisterController extends Controller
             if ($cekSlugStore) {
                 return $this->errorResponse('Validasi Gagal Nama Toko Sudah digunakan', $validator->errors(), 422);
             }
+            $cekEmail = User::where('email', $request->email)
+                ->whereHas('getStore')->first();
 
+            if ($cekEmail) {
+                return $this->errorResponse('Validasi Gagal Email Toko Sudah digunakan', $validator->errors(), 422);
+            }
         } elseif (isset($request->role) && $request->role == 'customer') {
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
@@ -67,7 +67,7 @@ class RegisterController extends Controller
             ]);
         }
 
-        if ($validator->fails()) {
+        if ($validator && $validator->fails()) {
             return $this->errorResponse('Validasi Gagal', $validator->errors(), 422);
         }
 
@@ -75,27 +75,22 @@ class RegisterController extends Controller
         if ($checkNo != null) {
             return $this->errorResponse('Nomor Telepon Sudah Digunakan', null, 500);
         }
-        DB::beginTransaction();
-        try {
 
-            $user = User::updateOrCreate(
-                ['email' => $request->email],
-                [
-                    'name' => $request->name,
-                    'role' => $request->role,
-                    'status' => $request->status,
-                    'password' => Hash::make($request->password),
-                ]);
+        DB::beginTransaction();
+
+        try {
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'role' => $request->role,
+                'status' => $request->status,
+                'password' => Hash::make($request->password),
+                'google_id' => $request->google_id,
+            ]);
 
             if ($request->role == 'store') {
-                $cekEmail = User::where('email', $request->email)
-                    ->whereHas('getStore')->first();
-
-                if ($cekEmail) {
-                    return $this->errorResponse('anda sudah memiliki toko', $validator->errors(), 422);
-                }
                 $user->assignRole('store');
-                $store = new Store;
+                $store = new Store();
                 $store->user_id = $user->id;
                 $store->name = $request->store_name;
                 $store->slug = Str::slug($request->slug);
@@ -107,15 +102,12 @@ class RegisterController extends Controller
                 $store->open_at = $request->open_at;
                 $store->close_at = $request->close_at;
                 $store->save();
-            } else {
-                $cekEmail = User::where('email', $request->email)
-                    ->whereHas('getCustomer')->first();
 
-                if ($cekEmail) {
-                    return $this->errorResponse('anda sudah memiliki akun pelanggan', $validator->errors(), 422);
-                }
+                DB::commit();
+                return $store;
+            } else {
                 $user->assignRole('customer');
-                $customer = new Customer;
+                $customer = new Customer();
                 $customer->user_id = $user->id;
                 $customer->nik = $request->nik;
                 $customer->phone_number = $request->phone_number;
@@ -126,30 +118,14 @@ class RegisterController extends Controller
                 $customer->latitude = $request->latitude;
                 $customer->longitude = $request->longitude;
                 $customer->save();
-            }
-            DB::commit();
 
-            return $this->successResponse('Registrasi Berhasil', $request->role == 'store' ? $store : $customer, 201);
+                DB::commit();
+                return $customer;
+            }
         } catch (\Throwable $th) {
             DB::rollBack();
-            Log::error('register error '.$th->getMessage());
-
-            return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
-        }
-    }
-
-    public function registerFromGoogle(Request $request)
-    {
-
-        try {
-            $response = $this->registerService->registerFromGoogle($request);
-
-            return $this->successResponse('Registrasi Berhasil', $response, 200);
-
-        } catch (\Throwable $th) {
-            Log::error('register error '.$th->getMessage());
-
-            return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
+            throw $th;
         }
     }
 }
+

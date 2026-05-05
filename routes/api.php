@@ -10,6 +10,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\StoreController;
+use App\Http\Controllers\CustomerAddressController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('register', [RegisterController::class, 'register']);
@@ -20,9 +21,12 @@ Route::get('get-store-by-category', [CustomerController::class, 'storeByCategory
 Route::get('get-store-by-slug/{slug}', [CustomerController::class, 'showStore']);
 Route::get('getStorebySearching', [CustomerController::class, 'getStoreBySearching']);
 
+Route::get('auth/google/login', [GoogleController::class, 'redirectLogin']);
 Route::get('auth/google/customer', [GoogleController::class, 'redirectCustomerToGoogle']);
 Route::get('auth/google/store', [GoogleController::class, 'redirectStoreToGoogle']);
 Route::post('auth/google/callback', [GoogleController::class, 'handleGoogleCallback']);
+
+Route::post('register-from-google', [RegisterController::class, 'registerFromGoogle']);
 
 Route::middleware([
     'auth:sanctum',
@@ -69,6 +73,14 @@ Route::middleware([
             Route::put('update/{id}', [CartController::class, 'update']);
             Route::delete('remove/{id}', [CartController::class, 'destroy']);
             Route::delete('clear', [CartController::class, 'clear']);
+        });
+
+        Route::prefix('address')->group(function () {
+            Route::get('/', [CustomerAddressController::class, 'index']);
+            Route::post('store', [CustomerAddressController::class, 'store']);
+            Route::put('update/{id}', [CustomerAddressController::class, 'update']);
+            Route::delete('destroy/{id}', [CustomerAddressController::class, 'destroy']);
+            Route::post('set-primary/{id}', [CustomerAddressController::class, 'setPrimary']);
         });
     });
 
