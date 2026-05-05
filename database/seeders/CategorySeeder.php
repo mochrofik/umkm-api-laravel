@@ -3,8 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\Category;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class CategorySeeder extends Seeder
 {
@@ -14,43 +15,35 @@ class CategorySeeder extends Seeder
     public function run(): void
     {
         $categories = [
-            [
-                'name' => 'Jajanan & Camilan',
-                'icon' => 'snacks.png',
-            ],
-            [
-                'name' => 'Makanan Berat',
-                'icon' => 'heavy_meals.png',
-            ],
-            [
-                'name' => 'Minuman Segar',
-                'icon' => 'drinks.png',
-            ],
-            [
-                'name' => 'Roti & Kue',
-                'icon' => 'bakery.png',
-            ],
-            [
-                'name' => 'Frozen Food',
-                'icon' => 'frozen_food.png',
-            ],
-            [
-                'name' => 'Oleh-oleh',
-                'icon' => 'souvenirs.png',
-            ],
-            [
-                'name' => 'Bumbu & Bahan Masakan',
-                'icon' => 'ingredients.png',
-            ],
+            ['name' => 'Jajanan & Camilan'],
+            ['name' => 'Makanan Berat'],
+            ['name' => 'Minuman Segar'],
+            ['name' => 'Roti & Kue'],
+            ['name' => 'Frozen Food'],
+            ['name' => 'Oleh-oleh'],
+            ['name' => 'Bumbu & Bahan Masakan'],
         ];
 
+        $targetDir = storage_path('app/public/uploads/categories');
+        if (!File::exists($targetDir)) {
+            File::makeDirectory($targetDir, 0755, true);
+        }
+
         foreach ($categories as $category) {
+            $slug = Str::slug($category['name']);
+            $iconName = $slug . '.png';
+            $sourcePath = resource_path("assets/icon/{$iconName}");
+
+            if (File::exists($sourcePath)) {
+                File::copy($sourcePath, $targetDir . '/' . $iconName);
+            }
+
             Category::updateOrCreate(
                 [
                     'name' => $category['name'],
                 ],
                 [
-                    'icon' => $category['icon'],
+                    'icon' => $iconName,
                 ]
             );
         }
