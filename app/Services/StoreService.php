@@ -2,15 +2,16 @@
 
 namespace App\Services;
 
-use App\Models\Store;
-use App\Models\User;
+use App\Helpers\DeleteImageHelper;
 use App\Models\MenuCategories;
 use App\Models\Product;
-use App\Helpers\DeleteImageHelper;
+use App\Models\Store;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-
 
 class StoreService
 {
@@ -28,7 +29,7 @@ class StoreService
         return Store::query()
             ->when($status, function ($query, $status) {
                 $query->whereHas('user', function ($query) use ($status) {
-                    if ($status != "all") {
+                    if ($status != 'all') {
                         $query->where('status', $status);
                     }
                 });
@@ -41,7 +42,7 @@ class StoreService
                     ->orWhere('phone_number', 'like', "%{$search}%")
                     ->orWhere('address', 'like', "%{$search}%");
             })
-            ->with("user")
+            ->with('user')
             ->latest()
             ->paginate($limit)
             ->withQueryString();
@@ -57,15 +58,15 @@ class StoreService
                 $user = User::findOrFail($id);
                 $store = Store::where('user_id', $id)->firstOrFail();
 
-                if (!empty($data['password'])) {
+                if (! empty($data['password'])) {
                     $user->password = Hash::make($data['password']);
                 }
 
-                if (!empty($data['email']) && $user->email != $data['email']) {
+                if (! empty($data['email']) && $user->email != $data['email']) {
                     $user->email = $data['email'];
                 }
             } else {
-                $user = new User();
+                $user = new User;
                 $user->email = $data['email'];
                 $user->password = Hash::make($data['password']);
             }
@@ -75,27 +76,27 @@ class StoreService
             $user->status = $data['status'] ?? 'active';
             $user->save();
 
-            if (!$id) {
+            if (! $id) {
                 $user->assignRole('store');
-                $store = new Store();
+                $store = new Store;
             }
 
-            $store->user_id      = $user->id;
-            $store->name         = $data['store_name'];
-            $store->slug         = Str::slug($data['slug']);
-            $store->address      = $data['address'];
-            $store->description  = $data['description'];
+            $store->user_id = $user->id;
+            $store->name = $data['store_name'];
+            $store->slug = Str::slug($data['slug']);
+            $store->address = $data['address'];
+            $store->description = $data['description'];
             $store->phone_number = $data['phone_number'] ?? null;
-            $store->latitude     = $data['latitude'] ?? null;
-            $store->longitude    = $data['longitude'] ?? null;
-            $store->open_at      = $data['open_at'] ?? null;
-            $store->close_at     = $data['close_at'] ?? null;
-            $store->is_open      = ($data['is_open'] == "1" || $data['is_open'] == "true") ? true : false;
+            $store->latitude = $data['latitude'] ?? null;
+            $store->longitude = $data['longitude'] ?? null;
+            $store->open_at = $data['open_at'] ?? null;
+            $store->close_at = $data['close_at'] ?? null;
+            $store->is_open = isset($data['is_open']) ? (($data['is_open'] == '1' || $data['is_open'] == 'true') ? true : false) : false;
 
-            if (isset($data['logo']) && $data['logo'] instanceof \Illuminate\Http\UploadedFile) {
+            if (isset($data['logo']) && $data['logo'] instanceof UploadedFile) {
                 DeleteImageHelper::deleteOldImage($store->logo, $this->staticPath);
                 $file = $data['logo'];
-                $filename = time() . '_' . $file->getClientOriginalName();
+                $filename = time().'_'.$file->getClientOriginalName();
                 $file->storeAs($this->staticPath, $filename, 'public');
                 $store->logo = $filename;
             }
@@ -121,6 +122,7 @@ class StoreService
             }
 
             $store->delete();
+
             return $store;
         });
     }
@@ -140,7 +142,7 @@ class StoreService
                 $query->where('name', 'like', "%{$search}%");
             })
             ->when($status !== null && $status !== 'all', function ($query) use ($status) {
-                $query->where('is_active', (int)$status);
+                $query->where('is_active', (int) $status);
             })
             ->latest();
 
@@ -177,9 +179,9 @@ class StoreService
                 $nameExist = MenuCategories::where('name', $data['name'])
                     ->where('store_id', $storeId)->first();
                 if ($nameExist) {
-                    throw new \Exception("Data sudah ada di database");
+                    throw new \Exception('Data sudah ada di database');
                 }
-                $menuCategory = new MenuCategories();
+                $menuCategory = new MenuCategories;
             }
 
             $menuCategory->store_id = $storeId;
@@ -203,10 +205,11 @@ class StoreService
 
         $product = Product::where('menu_category_id', $id)->first();
         if ($product) {
-            throw new \Exception("Gagal Hapus, data kategori dipakai pada produk aktif");
+            throw new \Exception('Gagal Hapus, data kategori dipakai pada produk aktif');
         }
 
         $category->delete();
+
         return $category;
     }
 
@@ -214,17 +217,17 @@ class StoreService
      * Get nearby stores based on latitude and longitude.
 
      *
-     * @param float $lat
-     * @param float $lng
-     * @param int $radius
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @param  float  $lat
+     * @param  float  $lng
+     * @param  int  $radius
+     * @return Collection
      */
     public function getNearbyStores($lat, $lng, $radius = 20)
     {
-        return Store::selectRaw("id, name, slug, logo, rating, description, latitude, longitude, 
+        return Store::selectRaw('id, name, slug, logo, rating, description, latitude, longitude, 
             ( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) 
             * cos( radians( longitude ) - radians(?) ) 
-            + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS jarak", [$lat, $lng, $lat])
+            + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS jarak', [$lat, $lng, $lat])
             ->having('jarak', '<', $radius)
             ->orderBy('jarak', 'asc')
             ->get();
@@ -233,10 +236,10 @@ class StoreService
     /**
      * Get stores by category and proximity.
      *
-     * @param string|null $category
-     * @param float|null $lat
-     * @param float|null $lng
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @param  string|null  $category
+     * @param  float|null  $lat
+     * @param  float|null  $lng
+     * @return Collection
      */
     public function getStoresByCategory($categoryName, $lat = null, $lng = null)
     {
@@ -246,26 +249,26 @@ class StoreService
 
         if ($lat && $lng) {
             $query->select('*')
-                ->selectRaw("id, name, slug, logo, rating, description, latitude, longitude, 
+                ->selectRaw('id, name, slug, logo, rating, description, latitude, longitude, 
                 ( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) 
                 * cos( radians( longitude ) - radians(?) ) 
-                + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS jarak", [$lat, $lng, $lat]);
+                + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS jarak', [$lat, $lng, $lat]);
         }
 
         return $query->where(function ($q) use ($category) {
             $q->whereHas('menuCategories', function ($sub) use ($category) {
-                $sub->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                $sub->whereRaw('LOWER(name) LIKE ?', ['%'.strtolower($category).'%']);
             })
                 ->orWhereHas('store_categories', function ($sub) use ($category) {
                     $sub->whereHas('categories', function ($query) use ($category) {
-                        $query->whereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                        $query->whereRaw('LOWER(name) LIKE ?', ['%'.strtolower($category).'%']);
                     })
-                        ->orWhereRaw('LOWER(name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                        ->orWhereRaw('LOWER(name) LIKE ?', ['%'.strtolower($category).'%']);
                 })
                 ->orWhereHas('getProducts', function ($sub) use ($category) {
-                    $sub->whereRaw('LOWER(name) LIKE ? ', ["%" . strtolower($category) . "%"])
+                    $sub->whereRaw('LOWER(name) LIKE ? ', ['%'.strtolower($category).'%'])
                         ->orWhereHas('tags', function ($child) use ($category) {
-                            $child->whereRaw('LOWER(tag_name) LIKE ?', ["%" . strtolower($category) . "%"]);
+                            $child->whereRaw('LOWER(tag_name) LIKE ?', ['%'.strtolower($category).'%']);
                         });
                 });
         })
@@ -277,30 +280,30 @@ class StoreService
      * Search stores by keyword across multiple fields:
      * store name, product name, category, menu category, and product tags.
      *
-     * @param string $keyword
-     * @param float|null $lat
-     * @param float|null $lng
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @param  string  $keyword
+     * @param  float|null  $lat
+     * @param  float|null  $lng
+     * @return Collection
      */
     public function searchStores($keyword, $lat = null, $lng = null)
     {
         $search = trim($keyword);
-        
+
         if (empty($search)) {
             return collect();
         }
 
         // Use boolean mode wildcard for partial word matches
-        $fullTextSearch = $search . '*';
+        $fullTextSearch = $search.'*';
 
         $query = Store::query();
 
         // Add distance calculation if coordinates are provided
         if ($lat && $lng) {
-            $query->selectRaw("*, 
+            $query->selectRaw('*, 
                 ( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) 
                 * cos( radians( longitude ) - radians(?) ) 
-                + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS jarak", [$lat, $lng, $lat]);
+                + sin( radians(?) ) * sin( radians( latitude ) ) ) ) AS jarak', [$lat, $lng, $lat]);
         }
 
         $query->where(function ($q) use ($fullTextSearch) {
@@ -338,7 +341,7 @@ class StoreService
     /**
      * Get store by slug with menu categories and products.
      *
-     * @param string $slug
+     * @param  string  $slug
      * @return Store|null
      */
     public function getStoreBySlug($slug)
