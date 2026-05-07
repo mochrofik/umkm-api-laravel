@@ -6,6 +6,8 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class CartService
 {
@@ -31,6 +33,15 @@ class CartService
      */
     public function addToCart($customerId, $productId, $quantity = 1)
     {
+        $validator = Validator::make(['product_id' => $productId, 'quantity' => $quantity], [
+            'product_id' => 'required|exists:products,id',
+            'quantity'   => 'nullable|integer|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
         return DB::transaction(function () use ($customerId, $productId, $quantity) {
             $cart = $this->getOrCreateCart($customerId);
             
@@ -59,6 +70,14 @@ class CartService
      */
     public function updateCartItem($customerId, $itemId, $quantity)
     {
+        $validator = Validator::make(['quantity' => $quantity], [
+            'quantity' => 'required|integer|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
         $cart = $this->getOrCreateCart($customerId);
         $item = CartItem::where('cart_id', $cart->id)->findOrFail($itemId);
         

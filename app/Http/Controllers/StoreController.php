@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class StoreController extends Controller
 {
@@ -32,33 +33,11 @@ class StoreController extends Controller
 
     public function addEdit(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name'         => 'required|string|max:255',
-            'email'        => $request->id ? 'required|email|unique:users,email,' . $request->id : 'required|email|unique:users,email',
-            'role'         => 'required|in:admin,store,customer',
-            'status'       => 'required|in:active,verify,banned',
-            'password'     => $request->id ? 'nullable|string|min:8' : 'required|string|min:8',
-            'store_name'   => 'required|string|max:255',
-            'slug'         => $request->id ? 'required|string|unique:stores,slug,' . $request->id . ',user_id' : 'required|string|unique:stores,slug',
-            'address'      => 'required|string',
-            'description'  => 'required|string',
-            'phone_number' => 'nullable|string',
-            'latitude'     => 'nullable|numeric',
-            'longitude'    => 'nullable|numeric',
-            'open_at'      => 'nullable|date_format:H:i',
-            'close_at'     => 'nullable|date_format:H:i',
-        ], [
-            'email.unique' => 'Validasi Gagal Email Sudah digunakan',
-            'slug.unique'  => 'Validasi Gagal Nama Toko Sudah digunakan',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse("Validasi Gagal", $validator->errors(), 422);
-        }
-
         try {
             $store = $this->storeService->addOrUpdateStore($request->all(), $request->id);
             return $this->successResponse('Berhasil menyimpan data toko',  $store, 201);
+        } catch (ValidationException $e) {
+            return $this->errorResponse("Validasi Gagal", $e->errors(), 422);
         } catch (\Throwable $th) {
             Log::error("add edit toko error " . $th);
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
@@ -96,18 +75,6 @@ class StoreController extends Controller
 
     public function addEditMenuCategory(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'id'            => 'nullable|exists:menu_categories,id',
-            'name'          => 'required|string|max:255',
-            'description'   => 'required|string',
-            'display_order' => 'required|integer',
-            'is_active'     => 'required|integer|in:0,1',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse("Validasi Gagal", $validator->errors(), 422);
-        }
-
         try {
             $auth = Auth::user();
             $store = Store::where('user_id', $auth->id)->first();
@@ -119,6 +86,8 @@ class StoreController extends Controller
             $menuCategory = $this->storeService->addOrUpdateMenuCategory($request->all(), $store->id, $request->id);
             $message = $request->id ? 'Kategori berhasil diubah' : 'Kategori berhasil ditambahkan';
             return $this->successResponse($message, $menuCategory, 201);
+        } catch (ValidationException $e) {
+            return $this->errorResponse("Validasi Gagal", $e->errors(), 422);
         } catch (\Throwable $th) {
             Log::error("addEdit category error: " . $th->getMessage());
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);

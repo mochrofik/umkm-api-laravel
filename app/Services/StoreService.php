@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class StoreService
 {
@@ -53,6 +55,30 @@ class StoreService
      */
     public function addOrUpdateStore(array $data, $id = null)
     {
+        $validator = Validator::make($data, [
+            'name'         => 'required|string|max:255',
+            'email'        => $id ? 'required|email|unique:users,email,' . $id : 'required|email|unique:users,email',
+            'role'         => 'required|in:admin,store,customer',
+            'status'       => 'required|in:active,verify,banned',
+            'password'     => $id ? 'nullable|string|min:8' : 'required|string|min:8',
+            'store_name'   => 'required|string|max:255',
+            'slug'         => $id ? 'required|string|unique:stores,slug,' . $id . ',user_id' : 'required|string|unique:stores,slug',
+            'address'      => 'required|string',
+            'description'  => 'required|string',
+            'phone_number' => 'nullable|string',
+            'latitude'     => 'nullable|numeric',
+            'longitude'    => 'nullable|numeric',
+            'open_at'      => 'nullable|date_format:H:i',
+            'close_at'     => 'nullable|date_format:H:i',
+        ], [
+            'email.unique' => 'Validasi Gagal Email Sudah digunakan',
+            'slug.unique'  => 'Validasi Gagal Nama Toko Sudah digunakan',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
         return DB::transaction(function () use ($data, $id) {
             if ($id) {
                 $user = User::findOrFail($id);
@@ -158,6 +184,18 @@ class StoreService
      */
     public function addOrUpdateMenuCategory(array $data, $storeId, $id = null)
     {
+        $validator = Validator::make($data, [
+            'id'            => 'nullable|exists:menu_categories,id',
+            'name'          => 'required|string|max:255',
+            'description'   => 'required|string',
+            'display_order' => 'required|integer',
+            'is_active'     => 'required|integer|in:0,1',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
         return DB::transaction(function () use ($data, $storeId, $id) {
             if ($data['is_active'] == 1) {
                 $duplicateOrder = MenuCategories::where('store_id', $storeId)

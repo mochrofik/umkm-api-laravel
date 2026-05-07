@@ -6,7 +6,9 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 
 class OrderService
@@ -58,6 +60,14 @@ class OrderService
      */
     public function updateOrderStatus($orderId, $status, $storeId)
     {
+        $validator = Validator::make(['status' => $status], [
+            'status' => 'required|string|in:pending,processing,completed,cancelled',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
         $order = Order::where('id', $orderId)
             ->where('store_id', $storeId)
             ->firstOrFail();
@@ -78,6 +88,22 @@ class OrderService
      */
     public function createOrder(array $data, $customerId)
     {
+        $validator = Validator::make($data, [
+            'store_id'         => 'required|exists:stores,id',
+            'items'            => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.quantity'   => 'required|integer|min:1',
+            'payment_method'   => 'nullable|string',
+            'delivery_address' => 'nullable|string',
+            'latitude'         => 'nullable|numeric',
+            'longitude'        => 'nullable|numeric',
+            'notes'            => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
         return DB::transaction(function () use ($data, $customerId) {
             $storeId = $data['store_id'];
             $items = $data['items']; // Expected: [['product_id' => 1, 'quantity' => 2], ...]

@@ -8,6 +8,8 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class CustomerService
 {
@@ -53,6 +55,24 @@ class CustomerService
      */
     public function addOrUpdateCustomer(array $data, $id = null)
     {
+        $validator = Validator::make($data, [
+            'name'          => 'required|string|max:255',
+            'email'         => 'required|email',
+            'phone_number'  => 'required|string|max:15',
+            'gender'        => 'required|in:male,female',
+            'date_of_birth' => 'nullable|date_format:Y-m-d',
+            'address'       => 'nullable|string',
+            'postal_code'   => 'nullable|string|max:5',
+            'latitude'      => 'nullable|numeric',
+            'longitude'     => 'nullable|numeric',
+            'role'          => 'required|in:admin,store,customer',
+            'status'        => 'required|in:active,verify,banned',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
         return DB::transaction(function () use ($data, $id) {
             if ($id) {
                 $user = User::findOrFail($id);

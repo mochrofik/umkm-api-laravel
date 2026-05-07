@@ -2,69 +2,36 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Category;
+use App\Services\CategoryService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class CategoriesController extends Controller
 {
+    protected CategoryService $categoryService;
+
+    public function __construct(CategoryService $categoryService)
+    {
+        $this->categoryService = $categoryService;
+    }
 
     public function addEdit(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'id'     => 'nullable|exists:categories,id',
-            'name'   => 'required|string|max:255',
-            'icon'   => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Validasi file gambar
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse("Validasi Gagal", $validator->errors(), 422);
-        }
-
-        DB::beginTransaction();
         try {
-            if (isset($request->id) && $request->id != null) {
-                $category = Category::find($request->id);
-            } else {
-                // Cek duplikasi nama hanya untuk data baru
-                $nameExist = Category::where('name', $request->name)->first();
-                if ($nameExist) {
-                    return $this->errorResponse("Data sudah ada di database", null, 409);
-                }
-                $category = new Category();
-            }
+            $category = $this->categoryService->addOrUpdateCategory(
+                $request->all(),
+                $request->file('icon')
+            );
 
-            $category->name = $request->name;
+            $message = ($request->id) ? 'Kategori berhasil diubah' : 'Kategori berhasil ditambahkan';
 
-            $staticPath = 'uploads/categories';
-            if ($request->hasFile('icon')) {
-
-                $oldImage = $category->icon;
-                if ($oldImage && Storage::disk('public')->exists($staticPath . '/' . $oldImage)) {
-                    Storage::disk('public')->delete($staticPath . '/' . $oldImage);
-                }
-
-                $file = $request->file('icon');
-                $filename = time() . '_' . $file->getClientOriginalName();
-                $file->storeAs($staticPath, $filename, 'public');
-                $category->icon = $filename;
-            }
-
-            $category->save();
-
-            DB::commit();
-
-            $message = (isset($request->id)) ? 'Kategori berhasil diubah' : 'Kategori berhasil ditambahkan';
             return $this->successResponse($message, $category, 201);
+        } catch (ValidationException $e) {
+            return $this->errorResponse('Validasi Gagal', $e->errors(), 422);
         } catch (\Throwable $th) {
-            if (isset($filename) && Storage::disk('public')->exists($staticPath . '/' . $filename)) {
-                Storage::disk('public')->delete($staticPath . '/' . $filename);
-            }
-            DB::rollBack();
-            Log::error("addEdit category error: " . $th->getMessage());
+            Log::error('addEdit category error: '.$th->getMessage());
+
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
         }
     }
@@ -72,54 +39,39 @@ class CategoriesController extends Controller
     public function fetch(Request $request)
     {
         try {
-            $search = $request->query('search');
-            $limit = $request->query('limit', 10);
+            $categories = $this->categoryService->fetchCategories($request->all());
 
-            $categories = Category::query()
-                ->when($search, function ($query, $search) {
-                    return $query->where('name', 'like', "%{$search}%");
-                })
-                ->latest()
-                ->paginate($limit)
-                ->withQueryString();
-
-            return $this->successResponse("Data kategori berhasil diambil", $categories, 200);
+            return $this->successResponse('Data kategori berhasil diambil', $categories, 200);
         } catch (\Throwable $th) {
-            Log::error("fetch categories " . $th);
-            return $this->errorResponse("Terjadi kesalahan", $th, 500);
+            Log::error('fetch categories '.$th);
+
+            return $this->errorResponse('Terjadi kesalahan', $th->getMessage(), 500);
         }
     }
 
     public function destroy($id)
     {
         try {
-            $category = Category::findOrFail($id);
-            $staticPath = 'uploads/categories';
-            $oldImage = $category->icon;
-            if ($oldImage && Storage::disk('public')->exists($staticPath . '/' . $oldImage)) {
-                Storage::disk('public')->delete($staticPath . '/' . $oldImage);
-            }
-            $category->delete();
-            return $this->successResponse("Data kategori berhasil dihapus", $category, 200);
+            $category = $this->categoryService->deleteCategory($id);
+
+            return $this->successResponse('Data kategori berhasil dihapus', $category, 200);
         } catch (\Throwable $th) {
             Log::error($th);
-            return $this->errorResponse("Data kategori gagal dihapus", $th, 500);
+
+            return $this->errorResponse('Data kategori gagal dihapus', $th->getMessage(), 500);
         }
     }
+
     public function forceDelete($id)
     {
         try {
-            $category = Category::findOrFail($id);
-            $staticPath = 'uploads/categories';
-            $oldImage = $category->icon;
-            if ($oldImage && Storage::disk('public')->exists($staticPath . '/' . $oldImage)) {
-                Storage::disk('public')->delete($staticPath . '/' . $oldImage);
-            }
-            $category->forceDelete();
-            return $this->successResponse("Data kategori berhasil dihapus", $category, 200);
+            $category = $this->categoryService->deleteCategory($id, true);
+
+            return $this->successResponse('Data kategori berhasil dihapus', $category, 200);
         } catch (\Throwable $th) {
             Log::error($th);
-            return $this->errorResponse("Data kategori gagal dihapus", $th, 500);
+
+            return $this->errorResponse('Data kategori gagal dihapus', $th->getMessage(), 500);
         }
     }
 }

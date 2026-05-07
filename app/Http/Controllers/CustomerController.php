@@ -7,6 +7,7 @@ use App\Services\StoreService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class CustomerController extends Controller
 {
@@ -52,27 +53,11 @@ class CustomerController extends Controller
 
     public function addEdit(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name'          => 'required|string|max:255',
-            'email'         => 'required|email',
-            'phone_number'  => 'required|string|max:15',
-            'gender'        => 'required|in:male,female',
-            'date_of_birth' => 'nullable|date_format:Y-m-d',
-            'address'       => 'nullable|string',
-            'postal_code'   => 'nullable|string|max:5',
-            'latitude'      => 'nullable|numeric',
-            'longitude'     => 'nullable|numeric',
-            'role'          => 'required|in:admin,store,customer',
-            'status'        => 'required|in:active,verify,banned',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse('Validasi gagal', $validator->errors(), 422);
-        }
-
         try {
             $customer = $this->customerService->addOrUpdateCustomer($request->all(), $request->id);
             return $this->successResponse('Berhasil menyimpan data pelanggan', $customer, 201);
+        } catch (ValidationException $e) {
+            return $this->errorResponse('Validasi gagal', $e->errors(), 422);
         } catch (\Throwable $th) {
             Log::error("add edit customer error " . $th->getLine() . $th);
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);

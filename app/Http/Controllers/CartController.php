@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class CartController extends Controller
 {
@@ -52,15 +53,6 @@ class CartController extends Controller
      */
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'product_id' => 'required|exists:products,id',
-            'quantity'   => 'nullable|integer|min:1',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse("Validasi gagal", $validator->errors(), 422);
-        }
-
         try {
             $customer = $this->getCustomer();
             $item = $this->cartService->addToCart(
@@ -69,6 +61,8 @@ class CartController extends Controller
                 $request->quantity ?? 1
             );
             return $this->successResponse("Produk berhasil ditambahkan ke keranjang", $item, 201);
+        } catch (ValidationException $e) {
+            return $this->errorResponse("Validasi gagal", $e->errors(), 422);
         } catch (\Throwable $th) {
             Log::error("Add to cart error: " . $th->getMessage());
             return $this->errorResponse("Gagal menambahkan ke keranjang", $th->getMessage(), 500);
@@ -80,18 +74,12 @@ class CartController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
-            'quantity' => 'required|integer|min:0',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse("Validasi gagal", $validator->errors(), 422);
-        }
-
         try {
             $customer = $this->getCustomer();
             $item = $this->cartService->updateCartItem($customer->id, $id, $request->quantity);
             return $this->successResponse("Keranjang berhasil diperbarui", $item, 200);
+        } catch (ValidationException $e) {
+            return $this->errorResponse("Validasi gagal", $e->errors(), 422);
         } catch (\Throwable $th) {
             return $this->errorResponse("Gagal memperbarui keranjang", $th->getMessage(), 500);
         }

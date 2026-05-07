@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
@@ -46,14 +47,6 @@ class OrderController extends Controller
      */
     public function updateStatus(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
-            'status' => 'required|string|in:pending,processing,completed,cancelled',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse("Validasi gagal", $validator->errors(), 422);
-        }
-
         try {
             $auth = Auth::user();
             $store = Store::where('user_id', $auth->id)->first();
@@ -64,6 +57,8 @@ class OrderController extends Controller
 
             $order = $this->orderService->updateOrderStatus($id, $request->status, $store->id);
             return $this->successResponse("Status pesanan berhasil diperbarui", $order, 200);
+        } catch (ValidationException $e) {
+            return $this->errorResponse("Validasi gagal", $e->errors(), 422);
         } catch (\Throwable $th) {
             Log::error("update order status error: " . $th->getMessage());
             return $this->errorResponse("Terjadi kesalahan sistem", $th->getMessage(), 500);
@@ -75,22 +70,6 @@ class OrderController extends Controller
      */
     public function checkout(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'store_id'         => 'required|exists:stores,id',
-            'items'            => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity'   => 'required|integer|min:1',
-            'payment_method'   => 'nullable|string',
-            'delivery_address' => 'nullable|string',
-            'latitude'         => 'nullable|numeric',
-            'longitude'        => 'nullable|numeric',
-            'notes'            => 'nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->errorResponse("Validasi gagal", $validator->errors(), 422);
-        }
-
         try {
             $auth = Auth::user();
             $customer = Customer::where('user_id', $auth->id)->first();
@@ -101,6 +80,8 @@ class OrderController extends Controller
 
             $order = $this->orderService->createOrder($request->all(), $customer->id);
             return $this->successResponse("Pesanan berhasil dibuat", $order, 201);
+        } catch (ValidationException $e) {
+            return $this->errorResponse("Validasi gagal", $e->errors(), 422);
         } catch (\Throwable $th) {
             Log::error("checkout error: " . $th->getMessage());
             return $this->errorResponse("Terjadi kesalahan sistem", $th->getMessage(), 500);
