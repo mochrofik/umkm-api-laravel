@@ -5,17 +5,15 @@ namespace App\Services;
 use App\Models\Customer;
 use App\Models\Store;
 use App\Models\User;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class RegisterService
 {
-
-
     public function registerFromGoogle(Request $request)
     {
         $validator = null;
@@ -51,7 +49,7 @@ class RegisterService
                 'name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255',
                 'role' => 'required|in:admin,store,customer',
-                'status' => 'required|in:active,verify,banned',
+                'status' => isset($request->google_id) && ($request->google_id) != null ? 'active' : 'required|in:active,verify,banned',
                 'password' => 'required|string|min:8',
                 'nik' => 'nullable|numeric|digits:16|unique:customers,nik',
                 'phone_number' => 'required|string|min:10|max:15',
@@ -65,7 +63,7 @@ class RegisterService
             ]);
         }
 
-        if (!$validator) {
+        if (! $validator) {
             $validator = Validator::make($request->all(), [
                 'role' => 'required|in:store,customer',
             ]);
