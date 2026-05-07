@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoriesController;
+use App\Http\Controllers\CustomerAddressController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\GoogleController;
 use App\Http\Controllers\OrderController;
@@ -10,7 +11,6 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\StoreController;
-use App\Http\Controllers\CustomerAddressController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('register', [RegisterController::class, 'register']);
@@ -25,6 +25,7 @@ Route::get('auth/google/login', [GoogleController::class, 'redirectLogin']);
 Route::get('auth/google/customer', [GoogleController::class, 'redirectCustomerToGoogle']);
 Route::get('auth/google/store', [GoogleController::class, 'redirectStoreToGoogle']);
 Route::post('auth/google/callback', [GoogleController::class, 'handleGoogleCallback']);
+Route::post('auth/google/login-app', [GoogleController::class, 'checkLoginGoogleApp']);
 
 Route::post('register-from-google', [RegisterController::class, 'registerFromGoogle']);
 

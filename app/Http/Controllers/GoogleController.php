@@ -26,7 +26,8 @@ class GoogleController extends Controller
         ]);
     }
 
-    public function redirectLogin(){
+    public function redirectLogin()
+    {
         return response()->json([
             'url' => Socialite::driver('google')->stateless()->redirect()->getTargetUrl(),
         ]);
@@ -36,7 +37,7 @@ class GoogleController extends Controller
     {
         try {
             // Jika frontend mengirim 'code' dalam body request (POST), Socialite biasanya butuh di $_GET
-            if ($request->has('code') && !$request->has('state')) {
+            if ($request->has('code') && ! $request->has('state')) {
                 $_GET['code'] = $request->code;
             }
 
@@ -61,7 +62,7 @@ class GoogleController extends Controller
             }
 
             // Jika user ditemukan lewat email tapi belum punya google_id, hubungkan akunnya
-            if (!$user->google_id) {
+            if (! $user->google_id) {
                 $user->update(['google_id' => $googleUser->id]);
             }
 
@@ -75,8 +76,52 @@ class GoogleController extends Controller
             ], 200);
 
         } catch (Exception $e) {
-            Log::error('Google Auth Error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+            Log::error('Google Auth Error: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return $this->successResponse('Autentikasi Gagal', null, 500);
+        }
+    }
+
+    public function checkLoginGoogleApp(Request $request)
+    {
+        try {
+
+            // Cari user berdasarkan google_id ATAU email
+            // Ini mencegah duplikasi jika user sebelumnya daftar manual pakai email yang sama
+            $user = User::where('google_id', $request->google_id)
+                ->orWhere('email', $request->email)
+                ->first();
+
+            if (! $user) {
+                // User belum ada, kirim data minimal ke frontend untuk registrasi lanjut
+                return $this->successResponse('Registrasi diperlukan', [
+                    'google_id' => $request->google_id,
+                    'email' => $request->email,
+                    'name' => $request->name,
+                    'create_password' => true,
+                    'role' => 'customer',
+                ], 200);
+            }
+
+            // Jika user ditemukan lewat email tapi belum punya google_id, hubungkan akunnya
+            if (! $user->google_id) {
+                $user->update(['google_id' => $request->google_id]);
+            }
+
+            // Create Sanctum Token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return $this->successResponse('Login Berhasil', [
+                'access_token' => $token,
+                'role' => $user->getRoleNames(),
+                'user' => $user,
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('Google Auth Error: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return $this->successResponse('Autentikasi Gagal', null, 500);
