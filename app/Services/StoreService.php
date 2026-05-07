@@ -294,24 +294,21 @@ class StoreService
         }
 
         return $query->where(function ($q) use ($category) {
-            $q->whereHas('menuCategories', function ($sub) use ($category) {
-                $sub->whereRaw('LOWER(name) LIKE ?', ['%'.strtolower($category).'%']);
-            })
-                ->orWhereHas('store_categories', function ($sub) use ($category) {
-                    $sub->whereHas('categories', function ($query) use ($category) {
-                        $query->whereRaw('LOWER(name) LIKE ?', ['%'.strtolower($category).'%']);
-                    })
-                        ->orWhereRaw('LOWER(name) LIKE ?', ['%'.strtolower($category).'%']);
+            $q->whereHas('store_categories', function ($sub) use ($category) {
+                $sub->whereHas('categories', function ($query) use ($category) {
+                    $query->whereRaw('LOWER(name) LIKE ?', ['%'.strtolower($category).'%']);
                 })
-                ->orWhereHas('categories', function ($sub) use ($category) {
-                    $sub->whereRaw('LOWER(name) LIKE ?', ['%'.strtolower($category).'%']);
-                })
-                ->orWhereHas('getProducts', function ($sub) use ($category) {
-                    $sub->whereRaw('LOWER(name) LIKE ? ', ['%'.strtolower($category).'%'])
-                        ->orWhereHas('tags', function ($child) use ($category) {
-                            $child->whereRaw('LOWER(tag_name) LIKE ?', ['%'.strtolower($category).'%']);
-                        });
-                });
+                    ->orWhereRaw('LOWER(name) LIKE ?', ['%'.strtolower($category).'%']);
+            });
+            // ->orWhereHas('categories', function ($sub) use ($category) {
+            //     $sub->whereRaw('LOWER(name) LIKE ?', ['%'.strtolower($category).'%']);
+            // })
+            // ->orWhereHas('getProducts', function ($sub) use ($category) {
+            //     $sub->whereRaw('LOWER(name) LIKE ? ', ['%'.strtolower($category).'%'])
+            //         ->orWhereHas('tags', function ($child) use ($category) {
+            //             $child->whereRaw('LOWER(tag_name) LIKE ?', ['%'.strtolower($category).'%']);
+            //         });
+            // });
         })
             ->with(['getProducts.tags', 'store_categories.categories'])
             ->get();
