@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class RegisterController extends Controller
 {
@@ -140,12 +141,13 @@ class RegisterController extends Controller
 
     public function registerFromGoogle(Request $request)
     {
-
         try {
             $response = $this->registerService->registerFromGoogle($request);
 
             return $this->successResponse('Registrasi Berhasil', $response, 200);
 
+        } catch (ValidationException $e) {
+            return $this->errorResponse('Validasi Gagal', $e->errors(), 422);
         } catch (\Throwable $th) {
             Log::error('register error '.$th->getMessage());
 

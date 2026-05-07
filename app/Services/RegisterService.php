@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Customer;
 use App\Models\Store;
 use App\Models\User;
-use App\Traits\ApiResponse;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 
 class RegisterService
 {
-    use ApiResponse;
+
 
     public function registerFromGoogle(Request $request)
     {
@@ -37,16 +37,15 @@ class RegisterService
                 'open_at' => 'nullable|date_format:H:i',
                 'close_at' => 'nullable|date_format:H:i',
             ]);
-            $cekSlugStore = Store::where('slug', $request->slug)->first();
-            if ($cekSlugStore) {
-                return $this->errorResponse('Validasi Gagal Nama Toko Sudah digunakan', $validator->errors(), 422);
-            }
-            $cekEmail = User::where('email', $request->email)
-                ->whereHas('getStore')->first();
 
-            if ($cekEmail) {
-                return $this->errorResponse('Validasi Gagal Email Toko Sudah digunakan', $validator->errors(), 422);
-            }
+            $validator->after(function ($validator) use ($request) {
+                if (Store::where('slug', $request->slug)->exists()) {
+                    $validator->errors()->add('slug', 'Nama Toko Sudah digunakan');
+                }
+                if (User::where('email', $request->email)->whereHas('getStore')->exists()) {
+                    $validator->errors()->add('email', 'Email Toko Sudah digunakan');
+                }
+            });
         } elseif (isset($request->role) && $request->role == 'customer') {
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
@@ -63,17 +62,22 @@ class RegisterService
                 'latitude' => 'nullable|numeric',
                 'longitude' => 'nullable|numeric',
                 'avatar' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-
             ]);
         }
 
-        if ($validator && $validator->fails()) {
-            return $this->errorResponse('Validasi Gagal', $validator->errors(), 422);
+        if (!$validator) {
+            $validator = Validator::make($request->all(), [
+                'role' => 'required|in:store,customer',
+            ]);
         }
 
-        $checkNo = Store::where('phone_number', $request->phone_number)->first();
-        if ($checkNo != null) {
-            return $this->errorResponse('Nomor Telepon Sudah Digunakan', null, 500);
+        $validator->validate();
+
+        // Manual check for phone number
+        if (Store::where('phone_number', $request->phone_number)->exists()) {
+            throw ValidationException::withMessages([
+                'phone_number' => ['Nomor Telepon Sudah Digunakan'],
+            ]);
         }
 
         DB::beginTransaction();
@@ -83,14 +87,14 @@ class RegisterService
                 'name' => $request->name,
                 'email' => $request->email,
                 'role' => $request->role,
-                'status' => $request->status,
+                'status' => $request->google_id != null ? 'active' : $request->status,
                 'password' => Hash::make($request->password),
                 'google_id' => $request->google_id,
             ]);
 
             if ($request->role == 'store') {
                 $user->assignRole('store');
-                $store = new Store();
+                $store = new Store;
                 $store->user_id = $user->id;
                 $store->name = $request->store_name;
                 $store->slug = Str::slug($request->slug);
@@ -104,10 +108,11 @@ class RegisterService
                 $store->save();
 
                 DB::commit();
+
                 return $store;
             } else {
                 $user->assignRole('customer');
-                $customer = new Customer();
+                $customer = new Customer;
                 $customer->user_id = $user->id;
                 $customer->nik = $request->nik;
                 $customer->phone_number = $request->phone_number;
@@ -120,6 +125,7 @@ class RegisterService
                 $customer->save();
 
                 DB::commit();
+
                 return $customer;
             }
         } catch (\Throwable $th) {
@@ -128,4 +134,3 @@ class RegisterService
         }
     }
 }
-
