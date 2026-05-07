@@ -6,7 +6,6 @@ use App\Helpers\DeleteImageHelper;
 use App\Models\Product;
 use App\Models\ProductTag;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -28,8 +27,8 @@ class ProductService
             ->with('category')
             ->where(function ($query) use ($search, $status) {
                 $query->where('name', 'like', "%{$search}%");
-                if ($status != "all" && $status != null) {
-                    $query->where('is_available', (int)$status);
+                if ($status != 'all' && $status != null) {
+                    $query->where('is_available', (int) $status);
                 }
             })
             ->latest();
@@ -47,18 +46,18 @@ class ProductService
     public function addOrUpdateProduct(array $data, $storeId, $image = null)
     {
         $validator = Validator::make($data, [
-            'name'         => 'required|string|max:255',
-            'price'        => 'required|numeric|min:0',
-            'description'  => 'nullable|string',
-            'stock'        => 'nullable|integer|min:0',
+            'name' => 'required|string|max:255',
+            'price' => 'required|numeric|min:0',
+            'description' => 'nullable|string',
+            'stock' => 'nullable|integer|min:0',
             'is_available' => 'required|integer',
             'menu_category_id' => 'required|integer',
         ], [
             'required' => ':attribute wajib diisi.',
-            'exists'   => ':attribute tidak ditemukan di database.',
-            'numeric'  => ':attribute harus berupa angka.',
-            'integer'  => ':attribute harus berupa angka bulat.',
-            'max'      => ':attribute maksimal :max karakter.',
+            'exists' => ':attribute tidak ditemukan di database.',
+            'numeric' => ':attribute harus berupa angka.',
+            'integer' => ':attribute harus berupa angka bulat.',
+            'max' => ':attribute maksimal :max karakter.',
         ]);
 
         if ($validator->fails()) {
@@ -67,9 +66,10 @@ class ProductService
 
         return DB::transaction(function () use ($data, $storeId, $image) {
             if (isset($data['id']) && $data['id'] != null) {
-                $product = Product::findOrFail($data['id']);
+
+                $product = Product::where('id', $data['id'])->where('store_id', $storeId)->firstOrFail();
             } else {
-                $product = new Product();
+                $product = new Product;
             }
 
             $product->store_id = $storeId;
@@ -77,9 +77,9 @@ class ProductService
             $product->name = $data['name'];
             $product->price = $data['price'];
             $product->description = $data['description'];
-            
+
             if (isset($data['stock']) && $data['stock'] < 0) {
-                throw new \Exception("Stok tidak boleh kurang dari 0");
+                throw new \Exception('Stok tidak boleh kurang dari 0');
             }
             $product->stock = $data['stock'] ?? 0;
             $product->is_available = $data['is_available'];
@@ -88,7 +88,7 @@ class ProductService
                 DeleteImageHelper::deleteOldImage($product->image_url, $this->staticPath);
 
                 $cleanName = str_replace(' ', '_', $image->getClientOriginalName());
-                $filename = time() . '_' . $cleanName;
+                $filename = time().'_'.$cleanName;
                 $image->storeAs($this->staticPath, $filename, 'public');
                 $product->image_url = $filename;
             }
@@ -100,8 +100,8 @@ class ProductService
                 ProductTag::where('product_id', $product->id)->delete();
                 foreach ($tagsArray as $tag) {
                     $tagName = trim($tag);
-                    if (!empty($tagName)) {
-                        $prodTag = new ProductTag();
+                    if (! empty($tagName)) {
+                        $prodTag = new ProductTag;
                         $prodTag->product_id = $product->id;
                         $prodTag->tag_name = $tagName;
                         $prodTag->save();
@@ -122,6 +122,7 @@ class ProductService
             $product = Product::findOrFail($id);
             DeleteImageHelper::deleteOldImage($product->image_url, $this->staticPath);
             $product->delete();
+
             return $product;
         });
     }
