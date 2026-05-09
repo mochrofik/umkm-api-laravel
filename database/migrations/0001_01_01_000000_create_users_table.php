@@ -17,9 +17,13 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->string('nik', 16)->unique()->nullable();
+            $table->string('phone_number', 15)->nullable();
             $table->enum('role', ['admin', 'store', 'customer']);
             $table->enum('status', ['active', 'verify', 'banned']);
             $table->string('google_id')->nullable();
+            $table->enum('gender', ['male', 'female'])->nullable();
+            $table->date('date_of_birth')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
