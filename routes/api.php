@@ -23,17 +23,24 @@ Route::get('getStorebySearching', [CustomerController::class, 'getStoreBySearchi
 
 Route::get('auth/google/login', [GoogleController::class, 'redirectLogin']);
 Route::get('auth/google/customer', [GoogleController::class, 'redirectCustomerToGoogle']);
-Route::get('auth/google/store', [GoogleController::class, 'redirectStoreToGoogle']);
+
 Route::post('auth/google/callback', [GoogleController::class, 'handleGoogleCallback']);
 Route::post('auth/google/login-app', [GoogleController::class, 'checkLoginGoogleApp']);
+Route::post('register-customer', [RegisterController::class, 'registerCustomer']);
+Route::post('register-google-customer', [RegisterController::class, 'registerGoogleCustomer']);
 
-Route::post('register-from-google', [RegisterController::class, 'registerFromGoogle']);
+// Route::get('auth/google/store', [GoogleController::class, 'redirectStoreToGoogle']);
+// Route::post('register-from-google', [RegisterController::class, 'registerFromGoogle']);
+
+
 
 Route::middleware([
     'auth:sanctum',
 ])->group(function () {
     Route::get('get-profile', [ProfileController::class, 'getProfile']);
     Route::post('update-profile', [ProfileController::class, 'update']);
+    
+    Route::post('update-user', [ProfileController::class, 'updateUser']);
     Route::prefix('category')->group(function () {
         Route::middleware(['role:admin'])->group(function () {
             Route::post('add-edit', [CategoriesController::class, 'addEdit']);

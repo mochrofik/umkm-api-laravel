@@ -23,28 +23,28 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\Customer $customer
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress newModelQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereAddressDetails($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereCity($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereCreatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereCustomerId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereDistrict($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereIsPrimary($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereLabel($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereLatitude($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereLongitude($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereName($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress wherePhoneNumber($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress wherePostalCode($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereProvince($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereSubdistrict($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomerAddress whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereAddressDetails($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereCity($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereCustomerId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereDistrict($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereIsPrimary($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereLabel($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereLatitude($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereLongitude($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses wherePhoneNumber($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses wherePostalCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereProvince($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereSubdistrict($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|UserAddresses whereUpdatedAt($value)
  * @mixin \Eloquent
  */
-class CustomerAddress extends Model
+class UserAddresses extends Model
 {
     use HasFactory;
 
@@ -64,8 +64,8 @@ class CustomerAddress extends Model
         'longitude',
     ];
 
-    public function customer()
+    public function user()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(User::class);
     }
 }

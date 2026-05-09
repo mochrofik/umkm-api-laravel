@@ -73,10 +73,16 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'email_verified_at',
+        'password',
+        'nik',
+        'phone_number',
         'role',
         'status',
-        'password',
         'google_id',
+        'date_of_birth',
+        'avatar',
+        'gender',
     ];
 
     /**
@@ -107,10 +113,15 @@ class User extends Authenticatable
         return $this->hasOne(Store::class, 'user_id', 'id');
     }
 
-    public function getCustomer()
+
+     protected $appends = ['avatar_url'];
+
+    public function getAvatarUrlAttribute()
     {
-        return $this->hasOne(Customer::class, 'user_id', 'id');
+        if (!$this->avatar) return null;
+        return asset('storage/uploads/user/' . $this->avatar);
     }
+  
 
     public static function checkUser($email)
     {
@@ -126,16 +137,6 @@ class User extends Authenticatable
             return $user;
         }
 
-        $user = User::where(function ($query) use ($email) {
-            $query->where('email', $email)
-                ->orWhereHas('getCustomer', function ($q) use ($email) {
-                    $q->where('phone_number', $email);
-                });
-        })->first();
-
-        if ($user) {
-            return $user;
-        }
 
         $user = User::where('email', $email)->first();
 

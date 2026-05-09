@@ -14,18 +14,18 @@ class CartService
     /**
      * Get or create a cart for a customer.
      */
-    public function getOrCreateCart($customerId)
+    public function getOrCreateCart($userId)
     {
-        $cart = Cart::firstOrCreate(['customer_id' => $customerId]);
+        $cart = Cart::firstOrCreate(['user_id' => $userId]);
         return $cart->load(['items.product.store']);
     }
 
     /**
      * Get cart with items and products.
      */
-    public function getCart($customerId)
+    public function getCart($userId)
     {
-        return $this->getOrCreateCart($customerId);
+        return $this->getOrCreateCart($userId);
     }
 
     /**

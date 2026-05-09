@@ -7,14 +7,23 @@ use App\Models\Category;
 use App\Models\Store;
 use App\Models\StoreCategory;
 use App\Models\User;
+use App\Repository\UserRepository;
+use App\Services\ProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Validator;
 
 class ProfileController extends Controller
 {
+
+    protected $profileService;
+    public function __construct( ProfileService $profileService) {
+        $this->profileService = $profileService;
+    }
+
     public function getProfile(Request $request)
     {
         try {
@@ -22,7 +31,6 @@ class ProfileController extends Controller
 
             $user = User::where('id', $auth->id)
                 ->with('getStore.store_categories.categories')
-                ->with('getCustomer')
                 ->first();
 
             $user->roles = $auth->getRoleNames();
@@ -115,5 +123,26 @@ class ProfileController extends Controller
 
             return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
         }
+    }
+
+
+    public function updateUser(Request $request){
+        try {
+           $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+            ]);
+
+            $validator->validated();
+
+            $user = $this->profileService->updateProfile($request);
+
+            return $this->successResponse('Berhasil mengubah data user', $user, 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return $this->errorResponse('Validasi Gagal', $e->errors(), 422);
+        } catch (\Throwable $th) {
+            Log::error('error update profile '.$th);
+            return $this->errorResponse('Terjadi kesalahan sistem', $th->getMessage(), 500);
+        }
+       
     }
 }

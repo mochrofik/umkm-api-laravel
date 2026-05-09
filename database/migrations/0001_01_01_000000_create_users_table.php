@@ -24,6 +24,7 @@ return new class extends Migration
             $table->string('google_id')->nullable();
             $table->enum('gender', ['male', 'female'])->nullable();
             $table->date('date_of_birth')->nullable();
+             $table->string('avatar')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Customer;
 use App\Models\Store;
 use App\Models\User;
+use App\Repository\UserRepository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -14,6 +15,11 @@ use Illuminate\Validation\ValidationException;
 
 class RegisterService
 {
+
+    public function __construct(
+        protected  UserRepository $userRepository
+    ) {}
+
     public function registerFromGoogle(Request $request)
     {
         $validator = null;
@@ -88,6 +94,10 @@ class RegisterService
                 'status' => $request->google_id != null ? 'active' : $request->status,
                 'password' => Hash::make($request->password),
                 'google_id' => $request->google_id,
+                'nik' => $request->nik,
+                'phone_number' => $request->phone_number,
+                'gender' => $request->gender,
+                'date_of_birth' => $request->date_of_birth,
             ]);
 
             if ($request->role == 'store') {
@@ -98,7 +108,6 @@ class RegisterService
                 $store->slug = Str::slug($request->slug);
                 $store->address = $request->address;
                 $store->description = $request->description;
-                $store->phone_number = $request->phone_number;
                 $store->latitude = $request->latitude;
                 $store->longitude = $request->longitude;
                 $store->open_at = $request->open_at;
@@ -110,25 +119,53 @@ class RegisterService
                 return $store;
             } else {
                 $user->assignRole('customer');
-                $customer = new Customer;
-                $customer->user_id = $user->id;
-                $customer->nik = $request->nik;
-                $customer->phone_number = $request->phone_number;
-                $customer->gender = $request->gender;
-                $customer->date_of_birth = $request->date_of_birth;
-                $customer->address = $request->address ?? '-';
-                $customer->postal_code = $request->postal_code;
-                $customer->latitude = $request->latitude;
-                $customer->longitude = $request->longitude;
-                $customer->save();
-
                 DB::commit();
 
-                return $customer;
             }
         } catch (\Throwable $th) {
             DB::rollBack();
             throw $th;
         }
+    }
+
+
+    public function registerCustomer(Request $request, $isGoogle = false){
+
+
+        try {
+            DB::beginTransaction();
+            $isExists = $this->userRepository->checkEmailExists($request->email);
+            if ($isExists) {
+                throw ValidationException::withMessages([
+                    'email' => ['Email Sudah Digunakan'],
+                ]);
+            }
+    
+            $isExists = $this->userRepository->checkPhoneNumberExists($request->phone_number);
+            if ($isExists) {
+                throw ValidationException::withMessages([
+                    'phone_number' => ['Nomor Telepon Sudah Digunakan'],
+                ]);
+            }
+
+            if($isGoogle){
+                $request->email_verified_at = now();
+                $request->status =  'active';
+            }else{
+                $request->status =  'verify';
+            }
+    
+            $user =  $this->userRepository->registerCustomer($request);
+            $user->assignRole('customer');
+            DB::commit();
+
+            return $user;
+            
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            throw $th;
+        }
+    
+
     }
 }

@@ -20,10 +20,18 @@ use Illuminate\Database\Eloquent\Model;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StoreCategory whereStoreId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|StoreCategory whereUpdatedAt($value)
  * @mixin \Eloquent
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StoreCategory where($column, $operator = null, $value = null, $boolean = 'and')
+ * @mixin \Illuminate\Database\Eloquent\Builder
+ * @mixin \Illuminate\Database\Eloquent\Model
  */
 class StoreCategory extends Model
 {
     protected $table = "store_category";
+
+    protected $fillable = [
+        'store_id',
+        'category_id',
+    ];
 
      public function categories()
     {

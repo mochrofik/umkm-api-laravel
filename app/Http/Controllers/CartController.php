@@ -40,8 +40,9 @@ class CartController extends Controller
     public function index()
     {
         try {
-            $customer = $this->getCustomer();
-            $cart = $this->cartService->getCart($customer->id);
+           
+            $userId = Auth::id();
+            $cart = $this->cartService->getCart($userId);
             return $this->successResponse("Data keranjang berhasil diambil", $cart, 200);
         } catch (\Throwable $th) {
             return $this->errorResponse($th->getMessage(), null, 404);
