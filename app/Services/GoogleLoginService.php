@@ -28,8 +28,8 @@ class GoogleLoginService
             $user = $this->googleRepository->getUserGoogle($googleUser->id, $googleUser->email);
 
             if (! $user) {
-                Log::info('Google User Data found:', (array) $googleUser);
-                throw new UserNotRegisteredException('User not found', [
+                 throw new UserNotRegisteredException('User not found',
+                 [
                     'google_id' => $googleUser->id,
                     'email' => $googleUser->email,
                     'name' => $googleUser->name,
